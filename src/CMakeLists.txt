@@ -1,0 +1,10 @@
+add_library(psax_core
+    util/binary_reader.cpp
+    pac/arc_types.cpp
+    pac/pac_file.cpp
+    psa/misc_section.cpp
+)
+target_include_directories(psax_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(psax main.cpp)
+target_link_libraries(psax PRIVATE psax_core)
