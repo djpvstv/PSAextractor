@@ -3,13 +3,13 @@
 #include "util/binary_reader.hpp"
 
 #include <stdexcept>
-#include <string_view>
 
 namespace psax {
 
 MiscSection::MiscSection(const uint8_t* data, std::size_t size)
     : data_(data), size_(size) {
     parse_header();
+    locate_string_pool();
     parse_tables();
 }
 
@@ -18,61 +18,73 @@ void MiscSection::parse_header() {
         throw std::runtime_error("MISC section too small to hold header");
     }
     BinaryReader r(data_, size_);
-    header_.file_size         = r.read_u32_be();
-    header_.data_table_offset = r.read_u32_be();
-    header_.extern_sub_offset = r.read_u32_be();
-    header_.data_table_count  = r.read_u32_be();
-    header_.extern_sub_count  = r.read_u32_be();
-    // 12 bytes reserved.
+    header_.file_size = r.read_u32_be();
+    header_.word1     = r.read_u32_be();
+    header_.word2     = r.read_u32_be();
+    header_.word3     = r.read_u32_be();
+    header_.word4     = r.read_u32_be();
 
-    // Sanity: the header's own file_size must not exceed the buffer we were given.
     if (header_.file_size > size_) {
-        throw std::runtime_error("MISC header file_size exceeds buffer size");
+        throw std::runtime_error("MISC file_size exceeds buffer size");
+    }
+}
+
+// Confirmed empirically against PSAC screenshots of FitMario.pac:
+//   Data Table name at pool offset 0 is "data", which sits at MISC 0x23C84.
+//   Ext sub entry 0 is "effectAnimCmd_BatSwing4Common".
+// Formula: STRPOOL = word1 + word2*4 + 32 + word3*8 + word4*8
+// The +32 gap is an unaccounted-for structure between the lookup table and the
+// data table — possibly 8 extra lookup entries or a small sub-header. TBD.
+void MiscSection::locate_string_pool() {
+    string_pool_start_ =
+        std::size_t(header_.word1)
+      + std::size_t(header_.word2) * 4
+      + 32
+      + std::size_t(header_.word3) * 8
+      + std::size_t(header_.word4) * 8;
+    if (string_pool_start_ > size_) {
+        throw std::runtime_error("MISC: derived string_pool_start past buffer");
     }
 }
 
 void MiscSection::parse_tables() {
-    // Data table: dataTableCount entries at dataTableOffset.
-    const std::size_t data_end =
-        std::size_t(header_.data_table_offset) +
-        std::size_t(header_.data_table_count) * DataTableEntry::kEntrySize;
-    if (data_end > size_) {
-        throw std::runtime_error("MISC data table extends past buffer");
-    }
-    data_table_.reserve(header_.data_table_count);
-    for (uint32_t i = 0; i < header_.data_table_count; ++i) {
-        const std::size_t off = header_.data_table_offset + i * DataTableEntry::kEntrySize;
-        BinaryReader r(data_ + off, DataTableEntry::kEntrySize);
-        DataTableEntry e;
-        e.data_offset = r.read_u32_be();
-        e.name_offset = r.read_u32_be();
-        data_table_.push_back(e);
+    const uint32_t ext_ct  = header_.external_sub_count();
+    const uint32_t data_ct = header_.data_table_count();
+
+    // Extern sub table sits immediately before the string pool.
+    ext_table_start_  = string_pool_start_ - std::size_t(ext_ct) * TableEntry::kEntrySize;
+    // Data table sits immediately before the extern sub table.
+    data_table_start_ = ext_table_start_   - std::size_t(data_ct) * TableEntry::kEntrySize;
+
+    if (data_table_start_ < MiscHeader::kHeaderSize) {
+        throw std::runtime_error("MISC: derived table region underflows header");
     }
 
-    // External subroutine table.
-    const std::size_t ext_end =
-        std::size_t(header_.extern_sub_offset) +
-        std::size_t(header_.extern_sub_count) * ExternalSubEntry::kEntrySize;
-    if (ext_end > size_) {
-        throw std::runtime_error("MISC external-sub table extends past buffer");
+    auto read_pair = [&](std::size_t off) {
+        BinaryReader r(data_ + off, TableEntry::kEntrySize);
+        TableEntry e;
+        e.data_ref = r.read_u32_be();
+        e.name_rel = r.read_u32_be();
+        return e;
+    };
+
+    data_table_.reserve(data_ct);
+    for (uint32_t i = 0; i < data_ct; ++i) {
+        data_table_.push_back(read_pair(data_table_start_ + i * TableEntry::kEntrySize));
     }
-    external_subs_.reserve(header_.extern_sub_count);
-    for (uint32_t i = 0; i < header_.extern_sub_count; ++i) {
-        const std::size_t off = header_.extern_sub_offset + i * ExternalSubEntry::kEntrySize;
-        BinaryReader r(data_ + off, ExternalSubEntry::kEntrySize);
-        ExternalSubEntry e;
-        e.data_offset = r.read_u32_be();
-        e.name_offset = r.read_u32_be();
-        external_subs_.push_back(e);
+    external_subs_.reserve(ext_ct);
+    for (uint32_t i = 0; i < ext_ct; ++i) {
+        external_subs_.push_back(read_pair(ext_table_start_ + i * TableEntry::kEntrySize));
     }
 }
 
-std::string_view MiscSection::string_at(uint32_t misc_offset) const {
-    if (misc_offset >= size_) {
-        throw std::out_of_range("MiscSection::string_at: offset past buffer");
+std::string_view MiscSection::name_at(uint32_t pool_relative_offset) const {
+    const std::size_t base = string_pool_start_ + pool_relative_offset;
+    if (base >= size_) {
+        throw std::out_of_range("MiscSection::name_at: offset past buffer");
     }
-    const char* start = reinterpret_cast<const char*>(data_ + misc_offset);
-    std::size_t max_len = size_ - misc_offset;
+    const char* start = reinterpret_cast<const char*>(data_ + base);
+    std::size_t max_len = size_ - base;
     std::size_t len = 0;
     while (len < max_len && start[len] != '\0') ++len;
     return std::string_view(start, len);

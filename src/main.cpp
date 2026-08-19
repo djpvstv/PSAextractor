@@ -39,44 +39,43 @@ int main(int argc, char** argv) {
 
         psax::MiscSection ms(pac.entry_data(*misc), misc->length);
         const auto& h = ms.header();
-        std::printf("  file_size:         %u\n", h.file_size);
-        std::printf("  data_table_offset: 0x%X (%u)\n", h.data_table_offset, h.data_table_offset);
-        std::printf("  extern_sub_offset: 0x%X (%u)\n", h.extern_sub_offset, h.extern_sub_offset);
-        std::printf("  data_table_count:  %u\n", h.data_table_count);
-        std::printf("  extern_sub_count:  %u\n", h.extern_sub_count);
+        std::printf("  file_size (+0x00): %u\n", h.file_size);
+        std::printf("  word1     (+0x04): 0x%X (%u)\n", h.word1, h.word1);
+        std::printf("  word2     (+0x08): 0x%X (%u)\n", h.word2, h.word2);
+        std::printf("  word3     (+0x0C): %u\n", h.word3);
+        std::printf("  word4     (+0x10): %u\n", h.word4);
+        std::printf("  (bytes 0x14..0x1F confirmed zero)\n");
+
+        std::printf("\n  --- derived table layout ---\n");
+        std::printf("  string_pool_start:       0x%zX\n", ms.string_pool_start());
+        std::printf("  external_sub_table_start:0x%zX\n", ms.external_sub_table_start());
+        std::printf("  data_table_start:        0x%zX\n", ms.data_table_start());
 
         std::printf("\n  --- data table (%zu entries) ---\n", ms.data_table().size());
-        for (std::size_t i = 0; i < ms.data_table().size() && i < 20; ++i) {
+        for (std::size_t i = 0; i < ms.data_table().size() && i < 5; ++i) {
             const auto& d = ms.data_table()[i];
             try {
-                auto name = ms.string_at(d.name_offset);
-                std::printf("    [%zu] data@0x%X name@0x%X = \"%.*s\"\n",
-                            i, d.data_offset, d.name_offset,
-                            static_cast<int>(name.size()), name.data());
-            } catch (const std::exception&) {
-                std::printf("    [%zu] data@0x%X name@0x%X = <bad string offset>\n",
-                            i, d.data_offset, d.name_offset);
+                auto n = ms.name_at(d.name_rel);
+                std::printf("    [%zu] name_rel=0x%X data_ref=0x%X name=\"%.*s\"\n",
+                            i, d.name_rel, d.data_ref,
+                            static_cast<int>(n.size()), n.data());
+            } catch (const std::exception& ex) {
+                std::printf("    [%zu] name_rel=0x%X data_ref=0x%X ERROR: %s\n",
+                            i, d.name_rel, d.data_ref, ex.what());
             }
         }
-        if (ms.data_table().size() > 20) {
-            std::printf("    ... and %zu more\n", ms.data_table().size() - 20);
-        }
-
-        std::printf("\n  --- external subs (%zu entries) ---\n", ms.external_subs().size());
+        std::printf("\n  --- external subs (%zu entries, first 10) ---\n", ms.external_subs().size());
         for (std::size_t i = 0; i < ms.external_subs().size() && i < 10; ++i) {
             const auto& e = ms.external_subs()[i];
             try {
-                auto name = ms.string_at(e.name_offset);
-                std::printf("    [%zu] ref@0x%X name@0x%X = \"%.*s\"\n",
-                            i, e.data_offset, e.name_offset,
-                            static_cast<int>(name.size()), name.data());
-            } catch (const std::exception&) {
-                std::printf("    [%zu] ref@0x%X name@0x%X = <bad string offset>\n",
-                            i, e.data_offset, e.name_offset);
+                auto n = ms.name_at(e.name_rel);
+                std::printf("    [%zu] name_rel=0x%X data_ref=0x%X name=\"%.*s\"\n",
+                            i, e.name_rel, e.data_ref,
+                            static_cast<int>(n.size()), n.data());
+            } catch (const std::exception& ex) {
+                std::printf("    [%zu] name_rel=0x%X data_ref=0x%X ERROR: %s\n",
+                            i, e.name_rel, e.data_ref, ex.what());
             }
-        }
-        if (ms.external_subs().size() > 10) {
-            std::printf("    ... and %zu more\n", ms.external_subs().size() - 10);
         }
         return 0;
     } catch (const std::exception& e) {

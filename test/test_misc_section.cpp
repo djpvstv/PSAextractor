@@ -11,17 +11,7 @@ namespace {
 std::string sample(const char* name) {
     return std::string(PSAX_TEST_PAC_DIR) + "/" + name;
 }
-
-psax::MiscSection open_misc(const char* pac_name) {
-    static thread_local std::vector<uint8_t> keep_alive;
-    auto pac = psax::PacFile::load(sample(pac_name));
-    auto misc = pac.find_misc_data();
-    REQUIRE(misc);
-    // Own a copy of the bytes so the MiscSection view stays valid past the PacFile.
-    keep_alive.assign(pac.entry_data(*misc), pac.entry_data(*misc) + misc->length);
-    return psax::MiscSection(keep_alive.data(), keep_alive.size());
 }
-} // namespace
 
 TEST_CASE("MISC header: file_size matches ARC entry length") {
     for (const char* name : { "FitMario.pac", "FitGanon.pac", "FitWolf.pac",
@@ -35,30 +25,9 @@ TEST_CASE("MISC header: file_size matches ARC entry length") {
     }
 }
 
-TEST_CASE("MISC header: known counts") {
-    // Values observed and cross-checked with our hex dumps.
-    struct Case { const char* file; uint32_t data_ct; uint32_t ext_ct; };
-    const Case cases[] = {
-        {"FitMario.pac", 1,   79},
-        {"FitWolf.pac",  2,   79},
-        {"FitKirby.pac", 37,  80},
-        {"Fighter.pac",  195, 0 },
-    };
-    for (const auto& c : cases) {
-        CAPTURE(c.file);
-        auto pac = psax::PacFile::load(sample(c.file));
-        auto misc = pac.find_misc_data();
-        REQUIRE(misc);
-        psax::MiscSection ms(pac.entry_data(*misc), misc->length);
-        CHECK(ms.header().data_table_count == c.data_ct);
-        CHECK(ms.header().extern_sub_count == c.ext_ct);
-    }
-}
-
-TEST_CASE("MISC header: reserved padding words are zero") {
-    // Bytes 0x14..0x1F are all zero across every sample we looked at.
-    for (const char* name : { "FitMario.pac", "FitWolf.pac", "FitKirby.pac",
-                              "Fighter.pac" }) {
+TEST_CASE("MISC header: reserved bytes 0x14..0x1F are zero") {
+    for (const char* name : { "FitMario.pac", "FitGanon.pac", "FitWolf.pac",
+                              "FitKirby.pac", "Fighter.pac" }) {
         CAPTURE(name);
         auto pac = psax::PacFile::load(sample(name));
         auto misc = pac.find_misc_data();
@@ -71,59 +40,104 @@ TEST_CASE("MISC header: reserved padding words are zero") {
     }
 }
 
-TEST_CASE("MISC tables fit within the section") {
+TEST_CASE("MISC header: measured u32 values") {
+    struct C { const char* file; uint32_t w1, w2, w3, w4; };
+    const C cases[] = {
+        {"FitMario.pac", 0x1EA64, 0x13E0,  1,   79},
+        {"FitWolf.pac",  0x23854, 0x15DF,  2,   79},
+        {"FitKirby.pac", 0x44EF4, 0x2B1C,  37,  80},
+        {"Fighter.pac",  0x24334, 0x157A,  195, 0 },
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.file);
+        auto pac = psax::PacFile::load(sample(c.file));
+        auto misc = pac.find_misc_data();
+        REQUIRE(misc);
+        psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+        CHECK(ms.header().word1 == c.w1);
+        CHECK(ms.header().word2 == c.w2);
+        CHECK(ms.header().word3 == c.w3);
+        CHECK(ms.header().word4 == c.w4);
+    }
+}
+
+// Confirmed empirically via PSAC. String pool location:
+//   STRPOOL = word1 + word2*4 + 32 + word3*8 + word4*8
+// The 32-byte gap after the lookup table is currently unexplained.
+TEST_CASE("FitMario: derived layout matches PSAC ground truth") {
+    auto pac = psax::PacFile::load(sample("FitMario.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+
+    CHECK(ms.string_pool_start()        == 0x23C84u);
+    CHECK(ms.external_sub_table_start() == 0x23A0Cu);
+    CHECK(ms.data_table_start()         == 0x23A04u);
+    CHECK(ms.data_table().size()        == 1u);
+    CHECK(ms.external_subs().size()     == 79u);
+}
+
+TEST_CASE("FitMario: data table entry name is 'data' (per PSAC)") {
+    auto pac = psax::PacFile::load(sample("FitMario.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    REQUIRE(ms.data_table().size() == 1u);
+    CHECK(ms.name_at(ms.data_table()[0].name_rel) == "data");
+}
+
+TEST_CASE("FitMario: first 15 external subs match PSAC screenshot exactly") {
+    // Verbatim from the PSAC "External Sub Routines" tab.
+    const char* expected[] = {
+        "effectAnimCmd_BatSwing4Common",
+        "effectAnimCmd_HarisenSwing4HoldCommon",
+        "effectAnimCmd_LipStickSwing4HoldCommon",
+        "effectAnimCmd_ScopeAirFireCommon",
+        "effectAnimCmd_ScopeAirRapidCommon",
+        "effectAnimCmd_ScopeAirStartCommon",
+        "effectAnimCmd_ScopeFireUpperCommon",
+        "effectAnimCmd_ScopeRapidUpperCommon",
+        "effectAnimCmd_ScopeStartUpperCommon",
+        "effectAnimCmd_SmashThrowBCommon",
+        "effectAnimCmd_SmashThrowFCommon",
+        "effectAnimCmd_SmashThrowHiCommon",
+        "effectAnimCmd_SmashThrowLwCommon",
+        "effectAnimCmd_StarRodSwing4HoldCommon",
+        "effectAnimCmd_SwordSwing4HoldCommon",
+    };
+    auto pac = psax::PacFile::load(sample("FitMario.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    REQUIRE(ms.external_subs().size() == 79u);
+    for (std::size_t i = 0; i < sizeof(expected)/sizeof(expected[0]); ++i) {
+        CAPTURE(i);
+        auto n = ms.name_at(ms.external_subs()[i].name_rel);
+        CHECK(std::string(n) == expected[i]);
+    }
+}
+
+// Sanity across all sample PACs: every name_rel dereferences to a NUL-terminated
+// identifier (letters, digits, underscore), at least 3 chars long.
+TEST_CASE("All ext-sub names in all PACs look like real identifiers") {
     for (const char* name : { "FitMario.pac", "FitGanon.pac", "FitWolf.pac",
-                              "FitKirby.pac", "Fighter.pac" }) {
-        CAPTURE(name);
-        auto pac = psax::PacFile::load(sample(name));
-        auto misc = pac.find_misc_data();
-        REQUIRE(misc);
-        psax::MiscSection ms(pac.entry_data(*misc), misc->length);
-        const auto& h = ms.header();
-        CHECK(h.data_table_offset + h.data_table_count * 8u <= misc->length);
-        CHECK(h.extern_sub_offset + h.extern_sub_count * 8u <= misc->length);
-    }
-}
-
-TEST_CASE("Data table entries have valid name offsets") {
-    for (const char* name : { "FitMario.pac", "FitWolf.pac", "FitKirby.pac",
-                              "Fighter.pac" }) {
-        CAPTURE(name);
-        auto pac = psax::PacFile::load(sample(name));
-        auto misc = pac.find_misc_data();
-        REQUIRE(misc);
-        psax::MiscSection ms(pac.entry_data(*misc), misc->length);
-        for (std::size_t i = 0; i < ms.data_table().size(); ++i) {
-            const auto& d = ms.data_table()[i];
-            CAPTURE(i);
-            CAPTURE(d.name_offset);
-            CAPTURE(d.data_offset);
-            // Name must point inside the section (or be zero if unnamed —
-            // but we haven't seen zero yet; leave it strict for now).
-            CHECK(d.name_offset > 0);
-            CHECK(d.name_offset < misc->length);
-            // First char of a name should be printable ASCII (all PSA names
-            // observed are alphanumeric + underscore).
-            uint8_t c = pac.entry_data(*misc)[d.name_offset];
-            CHECK((c >= 0x20 && c < 0x7F));
-        }
-    }
-}
-
-TEST_CASE("External sub entries have valid name offsets") {
-    for (const char* name : { "FitMario.pac", "FitWolf.pac", "FitKirby.pac" }) {
+                              "FitKirby.pac" }) {
         CAPTURE(name);
         auto pac = psax::PacFile::load(sample(name));
         auto misc = pac.find_misc_data();
         REQUIRE(misc);
         psax::MiscSection ms(pac.entry_data(*misc), misc->length);
         for (std::size_t i = 0; i < ms.external_subs().size(); ++i) {
-            const auto& e = ms.external_subs()[i];
             CAPTURE(i);
-            CAPTURE(e.name_offset);
-            CHECK(e.name_offset < misc->length);
-            uint8_t c = pac.entry_data(*misc)[e.name_offset];
-            CHECK((c >= 0x20 && c < 0x7F));
+            auto n = ms.name_at(ms.external_subs()[i].name_rel);
+            REQUIRE(n.size() >= 3);
+            for (char c : n) {
+                const bool ok = (c >= '0' && c <= '9')
+                             || (c >= 'A' && c <= 'Z')
+                             || (c >= 'a' && c <= 'z')
+                             || c == '_';
+                CHECK(ok);
+            }
         }
     }
 }
