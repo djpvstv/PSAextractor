@@ -3,6 +3,10 @@ add_library(psax_core
     pac/arc_types.cpp
     pac/pac_file.cpp
     psa/misc_section.cpp
+    psa/arg.cpp
+    psa/event.cpp
+    psa/command_table.cpp
+    psa/event_decoder.cpp
 )
 target_include_directories(psax_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
