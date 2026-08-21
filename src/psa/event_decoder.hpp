@@ -1,6 +1,5 @@
 #pragma once
 
-#include "psa/command_table.hpp"
 #include "psa/event.hpp"
 
 #include <cstddef>
@@ -21,17 +20,14 @@ public:
     EventDecoder(const uint8_t* misc_data, std::size_t misc_size);
 
     // Decode events from a RESOLVED MISC offset (already includes the +32).
-    // Reads (cmd_id, args_ptr) pairs until a (0, 0) terminator.
-    // For each event, looks up the command in the table to get the arg count,
-    // then reads that many (type, value) pairs from args_ptr+32.
-    // Unknown commands produce an Event with args_ptr set but no args
-    // decoded (so raw output still identifies the command).
+    // Reads (cmd_id, args_ptr) pairs until a (0, 0) terminator. Arg count
+    // is derived from the cmd_id itself, so unknown commands still decode
+    // their args correctly.
     std::vector<Event> decode(std::size_t event_list_offset) const;
 
 private:
     const uint8_t* data_;
     std::size_t    size_;
-    CommandTable   table_;
 };
 
 } // namespace psax

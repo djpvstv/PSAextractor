@@ -1,5 +1,6 @@
 #include "psa/event_decoder.hpp"
 
+#include "psa/command_table.hpp"
 #include "util/binary_reader.hpp"
 
 #include <stdexcept>
@@ -28,9 +29,7 @@ std::vector<Event> EventDecoder::decode(std::size_t event_list_offset) const {
         e.cmd_id   = cmd_id;
         e.args_ptr = args_ptr;
 
-        const auto info = table_.lookup(cmd_id);
-        const uint32_t n_args = info ? info->arg_count : 0u;
-
+        const uint32_t n_args = arg_count_of(cmd_id);
         if (n_args > 0) {
             const std::size_t args_start = resolve_misc_ptr(args_ptr);
             if (args_start + std::size_t(n_args) * 8u > size_) {

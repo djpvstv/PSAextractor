@@ -12,6 +12,7 @@ add_executable(psax_tests
     test_pac_file.cpp
     test_misc_section.cpp
     test_event_decoder.cpp
+    test_character_root.cpp
 )
 target_link_libraries(psax_tests PRIVATE psax_core doctest::doctest)
 target_compile_definitions(psax_tests PRIVATE

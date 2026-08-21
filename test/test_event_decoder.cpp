@@ -48,6 +48,50 @@ TEST_CASE("FitMario RunBrake: 5 events decode exactly as PSAC displays them") {
     CHECK(joined == expected);
 }
 
+TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {
+    // Expected DSL form (Scalar / 60000, Variable decoded, name lookup):
+    //   AsynchronousTimer(10)
+    //   BitVariableSet(RA-Bit[16])
+    //   BitVariableClear(RA-Bit[18])
+    //   AsynchronousTimer(13)
+    //   AllowInterrupt()
+    auto pac = psax::PacFile::load(sample("FitMario.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::EventDecoder dec(pac.entry_data(*misc), misc->length);
+    auto events = dec.decode(psax::resolve_misc_ptr(0x108D0u));
+    REQUIRE(events.size() == 5u);
+
+    CHECK(events[0].to_pretty_string() == "AsynchronousTimer(10)");
+    CHECK(events[1].to_pretty_string() == "BitVariableSet(RA-Bit[16])");
+    CHECK(events[2].to_pretty_string() == "BitVariableClear(RA-Bit[18])");
+    CHECK(events[3].to_pretty_string() == "AsynchronousTimer(13)");
+    CHECK(events[4].to_pretty_string() == "AllowInterrupt()");
+}
+
+TEST_CASE("Variable decoder unpacks memory-class + data-type + index") {
+    // From RunBrake:
+    //   0x22000010 -> RA-Bit[16]
+    //   0x22000012 -> RA-Bit[18]
+    // Bit layout: [dt:4][mc:4][index:24]
+    auto v1 = psax::variable_from_raw(0x22000010u);
+    CHECK(v1.mem_class == psax::VariableRef::MemClass::RA);
+    CHECK(v1.data_type == psax::VariableRef::DataType::Bit);
+    CHECK(v1.index == 16u);
+    CHECK(v1.to_string() == "RA-Bit[16]");
+
+    auto v2 = psax::variable_from_raw(0x22000012u);
+    CHECK(v2.to_string() == "RA-Bit[18]");
+}
+
+TEST_CASE("Scalar decoder divides raw by 60000") {
+    psax::Arg a1{psax::ArgType::Scalar, 0x000927C0u}; // 600000
+    CHECK(a1.to_pretty_string() == "10");
+
+    psax::Arg a2{psax::ArgType::Scalar, 0x000BE6E0u}; // 780000
+    CHECK(a2.to_pretty_string() == "13");
+}
+
 TEST_CASE("Individual RunBrake events match PSAC field-by-field") {
     auto pac = psax::PacFile::load(sample("FitMario.pac"));
     auto misc = pac.find_misc_data();

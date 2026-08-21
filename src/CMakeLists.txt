@@ -7,6 +7,8 @@ add_library(psax_core
     psa/event.cpp
     psa/command_table.cpp
     psa/event_decoder.cpp
+    psa/character_root.cpp
+    psa/subaction_table.cpp
 )
 target_include_directories(psax_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
