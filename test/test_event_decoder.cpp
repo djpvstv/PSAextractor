@@ -49,12 +49,6 @@ TEST_CASE("FitMario RunBrake: 5 events decode exactly as PSAC displays them") {
 }
 
 TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {
-    // Expected DSL form (Scalar / 60000, Variable decoded, name lookup):
-    //   AsynchronousTimer(10)
-    //   BitVariableSet(RA-Bit[16])
-    //   BitVariableClear(RA-Bit[18])
-    //   AsynchronousTimer(13)
-    //   AllowInterrupt()
     auto pac = psax::PacFile::load(sample("FitMario.pac"));
     auto misc = pac.find_misc_data();
     REQUIRE(misc);
@@ -63,25 +57,79 @@ TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {
     REQUIRE(events.size() == 5u);
 
     CHECK(events[0].to_pretty_string() == "AsynchronousTimer(10)");
-    CHECK(events[1].to_pretty_string() == "BitVariableSet(RA-Bit[16])");
-    CHECK(events[2].to_pretty_string() == "BitVariableClear(RA-Bit[18])");
+    CHECK(events[1].to_pretty_string() == "BitVariableSet(RA-Bit[16] = true)");
+    CHECK(events[2].to_pretty_string() == "BitVariableClear(RA-Bit[18] = false)");
     CHECK(events[3].to_pretty_string() == "AsynchronousTimer(13)");
     CHECK(events[4].to_pretty_string() == "AllowInterrupt()");
 }
 
 TEST_CASE("Variable decoder unpacks memory-class + data-type + index") {
-    // From RunBrake:
-    //   0x22000010 -> RA-Bit[16]
-    //   0x22000012 -> RA-Bit[18]
-    // Bit layout: [dt:4][mc:4][index:24]
-    auto v1 = psax::variable_from_raw(0x22000010u);
-    CHECK(v1.mem_class == psax::VariableRef::MemClass::RA);
-    CHECK(v1.data_type == psax::VariableRef::DataType::Bit);
-    CHECK(v1.index == 16u);
-    CHECK(v1.to_string() == "RA-Bit[16]");
+    // User-provided PSAC ground truth examples covering all classes/types:
+    //   0x20000008 -> RA-Basic[8]        (RunBrake earlier: 0x22000010 -> RA-Bit[16])
+    //   0x20000009 -> RA-Basic[9]
+    //   0x10000009 -> LA-Basic[9]
+    //   0x00004E23 -> IC-Basic[20003]
+    //   0x21000008 -> RA-Float[8]
+    //   0x22000008 -> RA-Bit[8]
+    // Bit layout: [mc:4][dt:4][index:24]  (was [dt:4][mc:4][...] — swapped).
+    struct C { uint32_t raw; const char* expected; };
+    const C cases[] = {
+        {0x20000008u, "RA-Basic[8]"},
+        {0x20000009u, "RA-Basic[9]"},
+        {0x10000009u, "LA-Basic[9]"},
+        {0x00004E23u, "IC-Basic[20003]"},
+        {0x21000008u, "RA-Float[8]"},
+        {0x22000008u, "RA-Bit[8]"},
+        {0x22000010u, "RA-Bit[16]"},   // RunBrake regression check
+        {0x22000012u, "RA-Bit[18]"},
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.raw);
+        CHECK(psax::variable_from_raw(c.raw).to_string() == c.expected);
+    }
+}
 
-    auto v2 = psax::variable_from_raw(0x22000012u);
-    CHECK(v2.to_string() == "RA-Bit[18]");
+TEST_CASE("BasicVariableSet renders with variable = value order (per PSAC)") {
+    // Wire layout is (value, variable); PSAC re-orders to "variable = value".
+    // Values (type 0), pointers (type 2), etc. render as hex with 0x prefix.
+    // Variable indices render as decimal inside brackets.
+    struct C { uint32_t arg0_type; uint32_t arg0_val; uint32_t arg1_type; uint32_t arg1_val; const char* expected; };
+    const C cases[] = {
+        // "Basic Variable Set: RA-Basic[8] = 0x5459"
+        {0, 0x5459u, 5, 0x20000008u, "BasicVariableSet(RA-Basic[8] = 0x5459)"},
+        {0, 0x5459u, 5, 0x10000009u, "BasicVariableSet(LA-Basic[9] = 0x5459)"},
+        {0, 0x5459u, 5, 0x00004E23u, "BasicVariableSet(IC-Basic[20003] = 0x5459)"},
+        {0, 0x5459u, 5, 0x21000008u, "BasicVariableSet(RA-Float[8] = 0x5459)"},
+        {0, 0x5459u, 5, 0x22000008u, "BasicVariableSet(RA-Bit[8] = 0x5459)"},
+        // 188460 / 60000 = 3.141 exactly (Scalar arg stays decimal)
+        {1, 0x2E02Cu, 0, 0x3u, "BasicVariableSet(0x3 = 3.141)"},
+        // Pointer arg: also hex-formatted like a Value.
+        {2, 0x2E02Cu, 0, 0x3u, "BasicVariableSet(0x3 = 0x2E02C)"},
+        {3, 0x1u,     0, 0x3u, "BasicVariableSet(0x3 = true)"},
+        {6, 0x0u,     0, 0x3u, "BasicVariableSet(0x3 = req(0x0))"},
+        // The specific example the user flagged: value 0x40AF5EDD, RA-Basic[15].
+        {0, 0x40AF5EDDu, 5, 0x2000000Fu, "BasicVariableSet(RA-Basic[15] = 0x40AF5EDD)"},
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.expected);
+        psax::Event e;
+        e.cmd_id = 0x12000200u;
+        e.args.push_back({static_cast<psax::ArgType>(c.arg0_type), c.arg0_val});
+        e.args.push_back({static_cast<psax::ArgType>(c.arg1_type), c.arg1_val});
+        CHECK(e.to_pretty_string() == c.expected);
+    }
+}
+
+TEST_CASE("BitVariableSet / Clear render with = true / = false suffix") {
+    psax::Event set;
+    set.cmd_id = 0x120A0100u;
+    set.args.push_back({psax::ArgType::Variable, 0x22000010u});
+    CHECK(set.to_pretty_string() == "BitVariableSet(RA-Bit[16] = true)");
+
+    psax::Event clr;
+    clr.cmd_id = 0x120B0100u;
+    clr.args.push_back({psax::ArgType::Variable, 0x22000012u});
+    CHECK(clr.to_pretty_string() == "BitVariableClear(RA-Bit[18] = false)");
 }
 
 TEST_CASE("Scalar decoder divides raw by 60000") {

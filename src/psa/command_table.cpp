@@ -1617,4 +1617,27 @@ const char* command_description(uint32_t cmd_id) {
     }
     return nullptr;
 }
+
+namespace {
+struct FormatEntry { uint32_t id; const char* fmt; };
+
+// Per-command argument display formats. Placeholders `{0}`, `{1}`, ... are
+// replaced by each decoded arg's pretty-string. Only override the default
+// "arg0, arg1, ..." rendering here when PSAC displays it differently.
+constexpr FormatEntry kFormats[] = {
+    // Variable ops (wire order: value/target, then variable being written).
+    {0x12000200u, "{1} = {0}"},          // BasicVariableSet:      var = value
+    {0x12040200u, "{1} += {0}"},         // BasicVariableAdd (if present)
+    {0x12060200u, "{1} -= {0}"},         // BasicVariableSubtract (if present)
+    {0x120A0100u, "{0} = true"},         // BitVariableSet
+    {0x120B0100u, "{0} = false"},        // BitVariableClear
+};
+} // namespace
+
+const char* command_format(uint32_t cmd_id) {
+    for (const auto& f : kFormats) {
+        if (f.id == cmd_id) return f.fmt;
+    }
+    return nullptr;
+}
 } // namespace psax

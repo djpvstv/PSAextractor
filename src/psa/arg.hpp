@@ -12,8 +12,9 @@ enum class ArgType : uint32_t {
     Scalar      = 1,   // fixed-point number (raw / 60000 = display)
     Pointer     = 2,   // MISC-relative offset (stored form, needs +32)
     Boolean     = 3,   // 0 = false, non-zero = true
+    Type4       = 4,   // rare; unknown semantics — displayed as signed int
     Variable    = 5,   // packed (memory class + data type + index)
-    Requirement = 6,   // requirement condition ID
+    Requirement = 6,   // requirement condition ID (index into Requirements.txt)
 };
 
 const char* arg_type_name(ArgType t);

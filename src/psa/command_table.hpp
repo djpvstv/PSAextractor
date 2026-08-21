@@ -21,4 +21,16 @@ const char* command_name(uint32_t cmd_id);
 // Longer PSAC-style description, or nullptr if unknown.
 const char* command_description(uint32_t cmd_id);
 
+// Optional per-command display-format string. Placeholders `{N}` are replaced
+// with each decoded arg's pretty-string. If nullptr, the caller should fall
+// back to a default of "arg0, arg1, ...". Examples:
+//
+//   BasicVariableSet -> "{1} = {0}"     // wire order (value, var); display (var = value)
+//   BitVariableSet   -> "{0} = true"
+//   BitVariableClear -> "{0} = false"
+//
+// Only commands with non-default argument display need entries. Add sparingly
+// as we verify each layout against PSAC.
+const char* command_format(uint32_t cmd_id);
+
 } // namespace psax
