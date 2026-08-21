@@ -3,6 +3,7 @@
 #include "psa/command_table.hpp"
 #include "psa/event_decoder.hpp"
 #include "psa/misc_section.hpp"
+#include "psa/sfx_audit.hpp"
 #include "psa/subaction_table.hpp"
 
 #include <cstdio>
@@ -21,7 +22,26 @@ void print_usage() {
         "  psax <pac> --subaction <id> [tab]     decode events for a subaction\n"
         "                                        tab = main | gfx | sfx | other\n"
         "                                        (default: all four)\n"
-        "  psax <pac> --events <hex-off>         decode events at a MISC stored offset\n");
+        "  psax <pac> --events <hex-off>         decode events at a MISC stored offset\n"
+        "  psax <pac> --audit-sfx                list SFX-relevant events across all subactions\n");
+}
+
+void audit_sfx_cli(const psax::PacFile& pac) {
+    auto misc = pac.find_misc_data();
+    if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+
+    const auto results = psax::audit_sfx(ms);
+    for (const auto& r : results) {
+        const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
+        std::printf("Subaction 0x%zX - %s - %s\n",
+                    r.subaction_id, r.tab_label, name);
+        for (const auto& ev : r.events) {
+            std::printf("  %s\n", ev.to_pretty_string().c_str());
+        }
+        std::printf("\n");
+    }
+    std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", results.size());
 }
 
 void print_summary(const psax::PacFile& pac) {
@@ -200,6 +220,8 @@ int main(int argc, char** argv) {
             print_summary(pac);
         } else if (std::strcmp(argv[2], "--list-subactions") == 0) {
             list_subactions(pac);
+        } else if (std::strcmp(argv[2], "--audit-sfx") == 0) {
+            audit_sfx_cli(pac);
         } else if (argc >= 4 && std::strcmp(argv[2], "--events") == 0) {
             decode_events_at(pac, parse_hex(argv[3]));
         } else if (argc >= 4 && std::strcmp(argv[2], "--subaction") == 0) {

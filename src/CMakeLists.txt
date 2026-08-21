@@ -9,6 +9,8 @@ add_library(psax_core
     psa/event_decoder.cpp
     psa/character_root.cpp
     psa/subaction_table.cpp
+    psa/subaction_flags.cpp
+    psa/sfx_audit.cpp
 )
 target_include_directories(psax_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
