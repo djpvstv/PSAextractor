@@ -16,10 +16,12 @@ namespace {
 void print_usage() {
     std::fprintf(stderr,
         "usage:\n"
-        "  psax <pac>                       PAC + MISC summary\n"
-        "  psax <pac> --list-subactions     list non-empty SubActionMain slots\n"
-        "  psax <pac> --subaction <index>   decode events for a Main-tab subaction index\n"
-        "  psax <pac> --events <hex-off>    decode events at a MISC stored offset\n");
+        "  psax <pac>                            PAC + MISC summary\n"
+        "  psax <pac> --list-subactions          list non-empty SubActionMain slots\n"
+        "  psax <pac> --subaction <id> [tab]     decode events for a subaction\n"
+        "                                        tab = main | gfx | sfx | other\n"
+        "                                        (default: all four)\n"
+        "  psax <pac> --events <hex-off>         decode events at a MISC stored offset\n");
 }
 
 void print_summary(const psax::PacFile& pac) {
@@ -96,19 +98,80 @@ void decode_events_at(const psax::PacFile& pac, uint32_t stored_offset) {
     std::printf("\n  (%zu events)\n", events.size());
 }
 
-void decode_subaction(const psax::PacFile& pac, std::size_t index) {
+// Which SubAction<Tab> table to read; also indexes into the character root.
+struct TabInfo {
+    const char* label;
+    psax::CharacterRoot::Field root_field;
+};
+constexpr TabInfo kTabs[] = {
+    {"Main",  psax::CharacterRoot::SubActionMain},
+    {"GFX",   psax::CharacterRoot::SubActionGFX},
+    {"SFX",   psax::CharacterRoot::SubActionSFX},
+    {"Other", psax::CharacterRoot::SubActionOther},
+};
+
+// Returns -1 if `s` doesn't match any tab keyword.
+int tab_index_from_name(const char* s) {
+    if (!s) return -1;
+    if (std::strcmp(s, "main")  == 0) return 0;
+    if (std::strcmp(s, "gfx")   == 0) return 1;
+    if (std::strcmp(s, "sfx")   == 0) return 2;
+    if (std::strcmp(s, "other") == 0) return 3;
+    return -1;
+}
+
+// Decode one tab's events for a given subaction id. Prints a header + events.
+// Returns true if there were events to decode, false if the entry was empty.
+bool decode_subaction_tab(const psax::PacFile& pac,
+                          const psax::MiscSection& ms,
+                          const psax::CharacterRoot& root,
+                          std::size_t id,
+                          const TabInfo& tab) {
+    auto sat = psax::read_subaction_table(
+        ms, root.fields[tab.root_field], id + 1);
+    if (id >= sat.size() || sat[id] == 0) {
+        std::printf("  --- %-5s: (empty)\n\n", tab.label);
+        return false;
+    }
+    const uint32_t stored = sat[id];
+    std::printf("  --- %-5s: event_list_ptr=0x%X (resolved 0x%zX) ---\n",
+                tab.label, stored, psax::resolve_misc_ptr(stored));
+
+    psax::EventDecoder dec(pac.entry_data(*pac.find_misc_data()), ms.size());
+    auto events = dec.decode(psax::resolve_misc_ptr(stored));
+    for (std::size_t i = 0; i < events.size(); ++i) {
+        const auto& e = events[i];
+        std::printf("    [%2zu] %-40s # %s\n",
+                    i, e.to_pretty_string().c_str(), e.to_raw_string().c_str());
+    }
+    std::printf("    (%zu events)\n\n", events.size());
+    return true;
+}
+
+// If tab_filter is nullptr, decode all four tabs; otherwise decode just the named one.
+void decode_subaction(const psax::PacFile& pac, std::size_t id, const char* tab_filter) {
     auto misc = pac.find_misc_data();
     if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
     psax::MiscSection ms(pac.entry_data(*misc), misc->length);
     auto root = psax::load_character_root(ms);
-    auto sat  = psax::read_subaction_table(
-        ms, root.fields[psax::CharacterRoot::SubActionMain], index + 1);
-    if (index >= sat.size() || sat[index] == 0) {
-        std::fprintf(stderr, "subaction 0x%zX is empty or out of range\n", index);
-        return;
+
+    std::printf("SubAction 0x%zX", id);
+    if (tab_filter) std::printf("  [%s tab only]", tab_filter);
+    std::printf("\n\n");
+
+    if (tab_filter) {
+        const int idx = tab_index_from_name(tab_filter);
+        if (idx < 0) {
+            std::fprintf(stderr, "unknown tab '%s' (want main|gfx|sfx|other)\n",
+                         tab_filter);
+            return;
+        }
+        decode_subaction_tab(pac, ms, root, id, kTabs[idx]);
+    } else {
+        for (const auto& t : kTabs) {
+            decode_subaction_tab(pac, ms, root, id, t);
+        }
     }
-    std::printf("SubAction 0x%zX  event_list_ptr=0x%X\n\n", index, sat[index]);
-    decode_events_at(pac, sat[index]);
 }
 
 uint32_t parse_hex(const char* s) {
@@ -140,7 +203,8 @@ int main(int argc, char** argv) {
         } else if (argc >= 4 && std::strcmp(argv[2], "--events") == 0) {
             decode_events_at(pac, parse_hex(argv[3]));
         } else if (argc >= 4 && std::strcmp(argv[2], "--subaction") == 0) {
-            decode_subaction(pac, parse_index(argv[3]));
+            const char* tab = (argc >= 5) ? argv[4] : nullptr;
+            decode_subaction(pac, parse_index(argv[3]), tab);
         } else {
             print_usage();
             return 2;

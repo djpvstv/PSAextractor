@@ -15,8 +15,10 @@ inline uint32_t arg_count_of(uint32_t cmd_id) {
 }
 
 // Human-readable name for a command ID, or nullptr if unknown.
-// Table is small and curated; add entries as we verify each command against
-// PSAC ground truth. Arg counts are derived from cmd_id, not stored here.
+// Arg counts are derived from cmd_id, not stored here.
 const char* command_name(uint32_t cmd_id);
+
+// Longer PSAC-style description, or nullptr if unknown.
+const char* command_description(uint32_t cmd_id);
 
 } // namespace psax

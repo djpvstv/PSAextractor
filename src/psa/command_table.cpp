@@ -1610,4 +1610,11 @@ const char* command_name(uint32_t cmd_id) {
     }
     return nullptr;
 }
+
+const char* command_description(uint32_t cmd_id) {
+    for (const auto& n : kNames) {
+        if (n.id == cmd_id) return n.desc;
+    }
+    return nullptr;
+}
 } // namespace psax
