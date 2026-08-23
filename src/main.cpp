@@ -17,21 +17,57 @@ namespace {
 void print_usage() {
     std::fprintf(stderr,
         "usage:\n"
-        "  psax <pac>                            PAC + MISC summary\n"
-        "  psax <pac> --list-subactions          list non-empty SubActionMain slots\n"
-        "  psax <pac> --subaction <id> [tab]     decode events for a subaction\n"
-        "                                        tab = main | gfx | sfx | other\n"
-        "                                        (default: all four)\n"
-        "  psax <pac> --events <hex-off>         decode events at a MISC stored offset\n"
-        "  psax <pac> --audit-sfx                list SFX-relevant events across all subactions\n");
+        "  psax <pac>                                     PAC + MISC summary\n"
+        "  psax <pac> --list-subactions                   list non-empty SubActionMain slots\n"
+        "  psax <pac> --subaction <id> [tab]              decode events for a subaction\n"
+        "                                                 tab = main | gfx | sfx | other\n"
+        "                                                 (default: all four)\n"
+        "  psax <pac> --events <hex-off>                  decode events at a MISC stored offset\n"
+        "  psax <pac> --audit-sfx [--min N] [--max N]     list SFX-relevant events across all subactions\n"
+        "                                                 min/max gate SoundEffect ID inclusively\n"
+        "                                                 (decimal or 0x-prefixed hex)\n");
 }
 
-void audit_sfx_cli(const psax::PacFile& pac) {
+// Parse a non-negative integer written in decimal or, if 0x-prefixed, hex.
+bool parse_uint_dec_or_hex(const char* s, uint32_t& out) {
+    if (!s || !*s) return false;
+    char* end = nullptr;
+    const unsigned long v = std::strtoul(s, &end, 0);   // base 0 auto-detects 0x
+    if (end == s || *end != '\0') return false;
+    out = static_cast<uint32_t>(v);
+    return true;
+}
+
+// Parse trailing --min / --max flags starting at argv[start]. Returns false
+// on malformed input; the error was already reported to stderr.
+bool parse_audit_sfx_options(int argc, char** argv, int start,
+                             psax::SfxAuditOptions& out) {
+    for (int i = start; i < argc; ++i) {
+        const bool has_next = (i + 1) < argc;
+        if (std::strcmp(argv[i], "--min") == 0 && has_next) {
+            if (!parse_uint_dec_or_hex(argv[++i], out.min_sound_id)) {
+                std::fprintf(stderr, "bad --min value: %s\n", argv[i]);
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--max") == 0 && has_next) {
+            if (!parse_uint_dec_or_hex(argv[++i], out.max_sound_id)) {
+                std::fprintf(stderr, "bad --max value: %s\n", argv[i]);
+                return false;
+            }
+        } else {
+            std::fprintf(stderr, "unrecognized option: %s\n", argv[i]);
+            return false;
+        }
+    }
+    return true;
+}
+
+void audit_sfx_cli(const psax::PacFile& pac, const psax::SfxAuditOptions& opt) {
     auto misc = pac.find_misc_data();
     if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
     psax::MiscSection ms(pac.entry_data(*misc), misc->length);
 
-    const auto results = psax::audit_sfx(ms);
+    const auto results = psax::audit_sfx(ms, opt);
     for (const auto& r : results) {
         const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
         std::printf("Subaction 0x%zX - %s - %s\n",
@@ -41,7 +77,15 @@ void audit_sfx_cli(const psax::PacFile& pac) {
         }
         std::printf("\n");
     }
-    std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", results.size());
+
+    const bool has_min = opt.min_sound_id != 0u;
+    const bool has_max = opt.max_sound_id != 0xFFFFFFFFu;
+    if (has_min || has_max) {
+        std::printf("(%zu subaction-tabs; SoundEffect filtered to id in [0x%X, 0x%X])\n",
+                    results.size(), opt.min_sound_id, opt.max_sound_id);
+    } else {
+        std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", results.size());
+    }
 }
 
 void print_summary(const psax::PacFile& pac) {
@@ -221,7 +265,9 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[2], "--list-subactions") == 0) {
             list_subactions(pac);
         } else if (std::strcmp(argv[2], "--audit-sfx") == 0) {
-            audit_sfx_cli(pac);
+            psax::SfxAuditOptions opt;
+            if (!parse_audit_sfx_options(argc, argv, 3, opt)) return 2;
+            audit_sfx_cli(pac, opt);
         } else if (argc >= 4 && std::strcmp(argv[2], "--events") == 0) {
             decode_events_at(pac, parse_hex(argv[3]));
         } else if (argc >= 4 && std::strcmp(argv[2], "--subaction") == 0) {

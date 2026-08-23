@@ -19,23 +19,58 @@ bool is_ra_basic_8_to_10(const Arg& a) {
         && v.index >= 8u && v.index <= 10u;
 }
 
-} // namespace
-
-bool event_is_sfx_relevant(const Event& e) {
-    switch (e.cmd_id) {
-        case 0x0A000100u:   // SoundEffect
-        case 0x0A030100u:   // SoundEffectTransient
-        case 0x06000D00u:   // OffensiveCollision
-        case 0x06010200u:   // SpecialOffensiveCollision
-            return true;
-        case 0x12000200u:   // BasicVariableSet: only if writing RA-Basic[8..10]
-            return e.args.size() >= 2u && is_ra_basic_8_to_10(e.args[1]);
-        default:
-            return false;
-    }
+bool is_direct_sound(const Event& e) {
+    return e.cmd_id == 0x0A000100u    // SoundEffect
+        || e.cmd_id == 0x0A030100u;   // SoundEffectTransient
 }
 
-std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms) {
+// Extract the sound ID from a SoundEffect / SoundEffectTransient event.
+// Both commands take a single Value arg (the sound bank offset).
+uint32_t direct_sound_id(const Event& e) {
+    return e.args.empty() ? 0u : e.args[0].raw_value;
+}
+
+bool is_ra_basic_write(const Event& e) {
+    return e.cmd_id == 0x12000200u    // BasicVariableSet
+        && e.args.size() >= 2u
+        && is_ra_basic_8_to_10(e.args[1]);
+}
+
+bool is_collision(const Event& e) {
+    return e.cmd_id == 0x06000D00u    // OffensiveCollision
+        || e.cmd_id == 0x06010200u;   // SpecialOffensiveCollision
+}
+
+} // namespace
+
+bool event_is_sfx_candidate(const Event& e) {
+    return is_direct_sound(e) || is_ra_basic_write(e) || is_collision(e);
+}
+
+std::vector<Event> filter_sfx_events(const std::vector<Event>& events,
+                                     const SfxAuditOptions& opt) {
+    // First pass: does this event list write RA-Basic[8..10] at all?
+    bool has_custom_sound_var = false;
+    for (const auto& e : events) {
+        if (is_ra_basic_write(e)) { has_custom_sound_var = true; break; }
+    }
+
+    std::vector<Event> out;
+    for (const auto& e : events) {
+        if (is_direct_sound(e)) {
+            const uint32_t id = direct_sound_id(e);
+            if (id >= opt.min_sound_id && id <= opt.max_sound_id) out.push_back(e);
+        } else if (is_ra_basic_write(e)) {
+            out.push_back(e);
+        } else if (is_collision(e) && has_custom_sound_var) {
+            out.push_back(e);
+        }
+    }
+    return out;
+}
+
+std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms,
+                                     const SfxAuditOptions& opt) {
     std::vector<SfxAuditEntry> out;
     const auto root = load_character_root(ms);
 
@@ -57,18 +92,14 @@ std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms) {
 
     EventDecoder dec(ms.data(), ms.size());
 
-    // Iterate subaction-major so all 4 tabs for one subaction stay together.
     for (std::size_t i = 0; i < count; ++i) {
         for (const auto& tab : tabs) {
             const auto table = read_subaction_table(
                 ms, root.fields[tab.field], i + 1);
             if (i >= table.size() || table[i] == 0) continue;
 
-            const auto events = dec.decode(resolve_misc_ptr(table[i]));
-            std::vector<Event> relevant;
-            for (const auto& e : events) {
-                if (event_is_sfx_relevant(e)) relevant.push_back(e);
-            }
+            const auto events   = dec.decode(resolve_misc_ptr(table[i]));
+            const auto relevant = filter_sfx_events(events, opt);
             if (relevant.empty()) continue;
 
             SfxAuditEntry entry;
