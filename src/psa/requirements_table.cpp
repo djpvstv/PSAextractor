@@ -1,0 +1,140 @@
+#include "psa/requirements_table.hpp"
+
+#include <cstddef>
+
+namespace psax {
+
+namespace {
+
+// Derived directly from PSAC's `Data/Requirements.txt` (152 entries, one per
+// line, line index == requirement ID). Names PSAC leaves as bare-hex
+// placeholders (e.g. "0E", "270F", "2710") are treated as nullptr so we fall
+// back to `req(0x%X)` at display time.
+constexpr const char* kRequirementNames[] = {
+    /* 0x00 */ "CharacterExists",
+    /* 0x01 */ "AnimationEnd",
+    /* 0x02 */ "AnimationHasLooped",
+    /* 0x03 */ "OnGround",
+    /* 0x04 */ "InAir",
+    /* 0x05 */ "HoldingALedge",
+    /* 0x06 */ "OnAPassableFloor",
+    /* 0x07 */ "Compare",
+    /* 0x08 */ "BitIsSet",
+    /* 0x09 */ "FacingRight",
+    /* 0x0A */ "FacingLeft",
+    /* 0x0B */ "HitboxConnects",
+    /* 0x0C */ "TouchingAFloorWallOrCeiling",
+    /* 0x0D */ "IsThrowingSomeone",
+    /* 0x0E */ nullptr,
+    /* 0x0F */ "ButtonTap",
+    /* 0x10 */ nullptr,
+    /* 0x11 */ nullptr,
+    /* 0x12 */ nullptr,
+    /* 0x13 */ nullptr,
+    /* 0x14 */ "IsInHitlag",
+    /* 0x15 */ "ArticleExists",
+    /* 0x16 */ "IsOversteppingAnEdge",
+    /* 0x17 */ "DistanceFromFloor",
+    /* 0x18 */ nullptr,
+    /* 0x19 */ nullptr,
+    /* 0x1A */ nullptr,
+    /* 0x1B */ "ChangeInAirGroundState",
+    /* 0x1C */ "ArticleAvailable",
+    /* 0x1D */ "CurrentTriggeredStatusID",
+    /* 0x1E */ nullptr,
+    /* 0x1F */ "HoldingItem",
+    /* 0x20 */ "HoldingItemOfType",
+    /* 0x21 */ "LightItemIsInGrabbingRange",
+    /* 0x22 */ "HeavyItemIsInGrabbingRange",
+    /* 0x23 */ "ItemOfTypeIsInGrabbingRange",
+    /* 0x24 */ "TurningWithItem",
+    /* 0x25 */ nullptr,
+    /* 0x26 */ nullptr,
+    /* 0x27 */ nullptr,
+    /* 0x28 */ nullptr,
+    /* 0x29 */ nullptr,
+    /* 0x2A */ "IsInWater",
+    /* 0x2B */ "RollADie",
+    /* 0x2C */ "SubactionExists",
+    /* 0x2D */ nullptr,
+    /* 0x2E */ "ButtonMashingStatusExpiredSleepBuryFreeze",
+    /* 0x2F */ "IsNotInDamagingMagnifier",
+    /* 0x30 */ "ButtonPress",
+    /* 0x31 */ "ButtonRelease",
+    /* 0x32 */ "ButtonPressed",
+    /* 0x33 */ "ButtonNotPressed",
+    /* 0x34 */ "StickDirectionPressed",
+    /* 0x35 */ "StickDirectionNotPressed",
+    /* 0x36 */ nullptr,
+    /* 0x37 */ "IsBeingThrownBySomeone1",
+    /* 0x38 */ "IsBeingThrownBySomeone2",
+    /* 0x39 */ "HasNotTethered3Times",
+    /* 0x3A */ "HasPassedOverAnEdgeForward",
+    /* 0x3B */ "HasPassedOverAnEdgeBackward",
+    /* 0x3C */ "IsHoldingSomeoneInAGrab",
+    /* 0x3D */ "HitboxHasConnected",
+    /* 0x3E */ nullptr,
+    /* 0x3F */ nullptr,
+    /* 0x40 */ nullptr,
+    /* 0x41 */ nullptr,
+    /* 0x42 */ nullptr,
+    /* 0x43 */ nullptr,
+    /* 0x44 */ nullptr,
+    /* 0x45 */ nullptr,
+    /* 0x46 */ nullptr,
+    /* 0x47 */ "PickUpAnItem",
+    /* 0x48 */ nullptr,
+    /* 0x49 */ "SSEAttributesIsNotUsed",
+    /* 0x4A */ nullptr,
+    /* 0x4B */ nullptr,
+    /* 0x4C */ "HasBeenHitByCapeEffect",
+    /* 0x4D */ nullptr, /* 0x4E */ nullptr, /* 0x4F */ nullptr,
+    /* 0x50 */ nullptr, /* 0x51 */ nullptr, /* 0x52 */ nullptr, /* 0x53 */ nullptr,
+    /* 0x54 */ nullptr, /* 0x55 */ nullptr, /* 0x56 */ nullptr, /* 0x57 */ nullptr,
+    /* 0x58 */ nullptr, /* 0x59 */ nullptr, /* 0x5A */ nullptr, /* 0x5B */ nullptr,
+    /* 0x5C */ nullptr, /* 0x5D */ nullptr, /* 0x5E */ nullptr, /* 0x5F */ nullptr,
+    /* 0x60 */ nullptr, /* 0x61 */ nullptr, /* 0x62 */ nullptr, /* 0x63 */ nullptr,
+    /* 0x64 */ nullptr, /* 0x65 */ nullptr, /* 0x66 */ nullptr, /* 0x67 */ nullptr,
+    /* 0x68 */ nullptr, /* 0x69 */ nullptr, /* 0x6A */ nullptr, /* 0x6B */ nullptr,
+    /* 0x6C */ nullptr, /* 0x6D */ nullptr, /* 0x6E */ nullptr, /* 0x6F */ nullptr,
+    /* 0x70 */ nullptr, /* 0x71 */ nullptr, /* 0x72 */ nullptr, /* 0x73 */ nullptr,
+    /* 0x74 */ nullptr, /* 0x75 */ nullptr, /* 0x76 */ nullptr, /* 0x77 */ nullptr,
+    /* 0x78 */ nullptr, /* 0x79 */ nullptr, /* 0x7A */ nullptr, /* 0x7B */ nullptr,
+    /* 0x7C */ nullptr, /* 0x7D */ nullptr, /* 0x7E */ nullptr, /* 0x7F */ nullptr,
+    /* 0x80 */ nullptr,
+    /* 0x81 */ nullptr,
+    /* 0x82 */ "InWalljumpSituation",
+    /* 0x83 */ "InWallclingSituation",
+    /* 0x84 */ "IsWithinFootstoolRange",
+    /* 0x85 */ nullptr,
+    /* 0x86 */ nullptr,
+    /* 0x87 */ "IsFallingHitDown",
+    /* 0x88 */ "HasSmashBall",
+    /* 0x89 */ nullptr,
+    /* 0x8A */ "CanPickUpAnotherItem",
+    /* 0x8B */ "SuccessfullyTetheredLedge",
+    /* 0x8C */ nullptr,
+    /* 0x8D */ nullptr,
+    /* 0x8E */ "FSmashShortcut",
+    /* 0x8F */ nullptr,
+    /* 0x90 */ nullptr,
+    /* 0x91 */ nullptr,
+    /* 0x92 */ nullptr,
+    /* 0x93 */ nullptr,
+    /* 0x94 */ nullptr,
+    /* 0x95 */ "FighterLoaded",
+    /* 0x96 */ "TapJumpOnCStickNotHeld",
+    /* 0x97 */ nullptr,   // PSAC file has "295,280,107" here — treat as unnamed
+};
+
+constexpr std::size_t kRequirementCount =
+    sizeof(kRequirementNames) / sizeof(kRequirementNames[0]);
+
+} // namespace
+
+const char* requirement_name(uint32_t id) {
+    if (id >= kRequirementCount) return nullptr;
+    return kRequirementNames[id];
+}
+
+} // namespace psax

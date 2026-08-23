@@ -1,5 +1,7 @@
 #include "psa/arg.hpp"
 
+#include "psa/requirements_table.hpp"
+
 #include <cstdio>
 #include <cstdint>
 
@@ -101,7 +103,16 @@ std::string Arg::to_pretty_string() const {
             return variable_from_raw(raw_value).to_string();
         }
         case ArgType::Requirement: {
-            std::snprintf(buf, sizeof(buf), "req(0x%X)", raw_value);
+            // Bit 31 = negation flag; low 31 bits = requirement ID.
+            const bool negated = (raw_value & kRequirementNegateBit) != 0u;
+            const uint32_t id  =  raw_value & kRequirementIdMask;
+            const char* name = requirement_name(id);
+            if (name) {
+                std::snprintf(buf, sizeof(buf), "%s%s", negated ? "!" : "", name);
+            } else {
+                std::snprintf(buf, sizeof(buf), "%sreq(0x%X)",
+                              negated ? "!" : "", id);
+            }
             return buf;
         }
     }

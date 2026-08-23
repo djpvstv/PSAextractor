@@ -106,7 +106,8 @@ TEST_CASE("BasicVariableSet renders with variable = value order (per PSAC)") {
         // Pointer arg: also hex-formatted like a Value.
         {2, 0x2E02Cu, 0, 0x3u, "BasicVariableSet(0x3 = 0x2E02C)"},
         {3, 0x1u,     0, 0x3u, "BasicVariableSet(0x3 = true)"},
-        {6, 0x0u,     0, 0x3u, "BasicVariableSet(0x3 = req(0x0))"},
+        // Requirement ID 0 = "Character Exists?" per PSAC's Requirements.txt.
+        {6, 0x0u,     0, 0x3u, "BasicVariableSet(0x3 = CharacterExists)"},
         // The specific example the user flagged: value 0x40AF5EDD, RA-Basic[15].
         {0, 0x40AF5EDDu, 5, 0x2000000Fu, "BasicVariableSet(RA-Basic[15] = 0x40AF5EDD)"},
     };
@@ -118,6 +119,28 @@ TEST_CASE("BasicVariableSet renders with variable = value order (per PSAC)") {
         e.args.push_back({static_cast<psax::ArgType>(c.arg1_type), c.arg1_val});
         CHECK(e.to_pretty_string() == c.expected);
     }
+}
+
+TEST_CASE("Requirement arg decodes via PSAC's Requirements.txt with negation bit") {
+    // User-supplied ground-truth examples:
+    //   E=02010200:0-00000019,6-00000003  -> ChangeAction(0x19, OnGround)
+    //   E=02010200:0-00000019,6-80000003  -> ChangeAction(0x19, !OnGround)
+    psax::Event pos;
+    pos.cmd_id = 0x02010200u;
+    pos.args.push_back({psax::ArgType::Value,       0x19u});
+    pos.args.push_back({psax::ArgType::Requirement, 0x00000003u});
+    CHECK(pos.to_pretty_string() == "ChangeAction(0x19, OnGround)");
+
+    psax::Event neg = pos;
+    neg.args[1].raw_value = 0x80000003u;
+    CHECK(neg.to_pretty_string() == "ChangeAction(0x19, !OnGround)");
+
+    // Known and unknown IDs isolated at Arg level.
+    CHECK(psax::Arg{psax::ArgType::Requirement, 0x00000000u}.to_pretty_string() == "CharacterExists");
+    CHECK(psax::Arg{psax::ArgType::Requirement, 0x80000000u}.to_pretty_string() == "!CharacterExists");
+    CHECK(psax::Arg{psax::ArgType::Requirement, 0x0000000Eu}.to_pretty_string() == "req(0xE)");   // PSAC placeholder
+    CHECK(psax::Arg{psax::ArgType::Requirement, 0x8000000Eu}.to_pretty_string() == "!req(0xE)");
+    CHECK(psax::Arg{psax::ArgType::Requirement, 0x00001234u}.to_pretty_string() == "req(0x1234)"); // way out of table
 }
 
 TEST_CASE("BitVariableSet / Clear render with = true / = false suffix") {
