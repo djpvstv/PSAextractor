@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include "pac/pac_file.hpp"
+#include "psa/command_table.hpp"
 #include "psa/event_decoder.hpp"
 
 namespace {
@@ -46,6 +47,48 @@ TEST_CASE("FitMario RunBrake: 5 events decode exactly as PSAC displays them") {
         "E=00020100:1-000927C0,E=120A0100:5-22000010,E=120B0100:5-22000012,"
         "E=00020100:1-000BE6E0,E=64000000:";
     CHECK(joined == expected);
+}
+
+// Verbatim SpecialOffensiveCollision from a user-supplied SpecialHi1 stream:
+//   E=06150F00:0-00460000,0-00000003,0-0000005A,0-00500064,0-00000000,
+//              1-000493E0,1-00000000,1-000CD140,1-00000000,1-00000000,
+//              1-0002BF20,1-00000000,0-32831C82,0-00000000,0-004FFFD3
+// Built here as a synthetic Event (no MISC needed) and pushed through the
+// pretty formatter to confirm the 15-arg command decodes cleanly.
+TEST_CASE("SpecialOffensiveCollision (0x06150F00) decodes 15 args and names correctly") {
+    psax::Event e;
+    e.cmd_id = 0x06150F00u;
+    // arg_count derived from cmd_id byte 2 = 0x0F = 15
+    CHECK(psax::arg_count_of(e.cmd_id) == 15u);
+
+    struct A { psax::ArgType t; uint32_t v; };
+    const A args[] = {
+        {psax::ArgType::Value,  0x00460000u}, {psax::ArgType::Value,  0x00000003u},
+        {psax::ArgType::Value,  0x0000005Au}, {psax::ArgType::Value,  0x00500064u},
+        {psax::ArgType::Value,  0x00000000u}, {psax::ArgType::Scalar, 0x000493E0u},
+        {psax::ArgType::Scalar, 0x00000000u}, {psax::ArgType::Scalar, 0x000CD140u},
+        {psax::ArgType::Scalar, 0x00000000u}, {psax::ArgType::Scalar, 0x00000000u},
+        {psax::ArgType::Scalar, 0x0002BF20u}, {psax::ArgType::Scalar, 0x00000000u},
+        {psax::ArgType::Value,  0x32831C82u}, {psax::ArgType::Value,  0x00000000u},
+        {psax::ArgType::Value,  0x004FFFD3u},
+    };
+    for (const auto& a : args) e.args.push_back({a.t, a.v});
+    REQUIRE(e.args.size() == 15u);
+
+    // Full expected pretty form (Scalars as decimal, Values as 0x…).
+    const std::string expected =
+        "SpecialOffensiveCollision("
+        "0x460000, 0x3, 0x5A, 0x500064, 0x0, "
+        "5, 0, 14, 0, 0, "
+        "3, 0, 0x32831C82, 0x0, 0x4FFFD3)";
+    CHECK(e.to_pretty_string() == expected);
+
+    // Raw form round-trip.
+    const std::string expected_raw =
+        "E=06150F00:0-00460000,0-00000003,0-0000005A,0-00500064,0-00000000,"
+        "1-000493E0,1-00000000,1-000CD140,1-00000000,1-00000000,"
+        "1-0002BF20,1-00000000,0-32831C82,0-00000000,0-004FFFD3";
+    CHECK(e.to_raw_string() == expected_raw);
 }
 
 TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {

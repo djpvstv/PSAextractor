@@ -37,8 +37,9 @@ bool is_ra_basic_write(const Event& e) {
 }
 
 bool is_collision(const Event& e) {
-    return e.cmd_id == 0x06000D00u    // OffensiveCollision
-        || e.cmd_id == 0x06010200u;   // SpecialOffensiveCollision
+    return e.cmd_id == 0x06000D00u    // OffensiveCollision          (13 args)
+        || e.cmd_id == 0x06150F00u;   // SpecialOffensiveCollision   (15 args)
+    // Note: 0x06010200 is ChangeHitboxDamage, NOT a collision creator.
 }
 
 } // namespace

@@ -29,8 +29,9 @@ struct SfxAuditOptions {
 };
 
 // True if `e` is one of the 5 command IDs the SFX audit ever considers:
-//   SoundEffect / SoundEffectTransient / OffensiveCollision /
-//   SpecialOffensiveCollision / BasicVariableSet-to-RA-Basic[8..10].
+//   SoundEffect (0x0A000100) / SoundEffectTransient (0x0A030100) /
+//   OffensiveCollision (0x06000D00) / SpecialOffensiveCollision (0x06150F00) /
+//   BasicVariableSet (0x12000200) targeting RA-Basic[8..10].
 // This is CONTEXT-FREE; it doesn't apply the "collisions only count when
 // paired with an RA-Basic write" rule — that's filter_sfx_events().
 bool event_is_sfx_candidate(const Event& e);

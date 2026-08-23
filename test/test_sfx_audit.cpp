@@ -42,8 +42,9 @@ TEST_CASE("SubActionFlags: index 0x10 for FitMario resolves to 'RunBrake'") {
 TEST_CASE("event_is_sfx_candidate: matches the 5 candidate patterns") {
     CHECK(psax::event_is_sfx_candidate(ev(0x0A000100u)));      // SoundEffect
     CHECK(psax::event_is_sfx_candidate(ev(0x0A030100u)));      // SoundEffectTransient
-    CHECK(psax::event_is_sfx_candidate(ev(0x06000D00u)));      // OffensiveCollision
-    CHECK(psax::event_is_sfx_candidate(ev(0x06010200u)));      // SpecialOffensiveCollision
+    CHECK(psax::event_is_sfx_candidate(ev(0x06000D00u)));      // OffensiveCollision        (13 args)
+    CHECK(psax::event_is_sfx_candidate(ev(0x06150F00u)));      // SpecialOffensiveCollision (15 args)
+    CHECK_FALSE(psax::event_is_sfx_candidate(ev(0x06010200u))); // ChangeHitboxDamage — not a creator
     CHECK(psax::event_is_sfx_candidate(ev_var_set(0x20000008u)));  // RA-Basic[8]
     CHECK(psax::event_is_sfx_candidate(ev_var_set(0x2000000Au)));  // RA-Basic[10]
 
@@ -138,14 +139,14 @@ TEST_CASE("filter_sfx_events: collisions require an RA-Basic[8..10] write in the
             ev_var_set(0x20000008u),   // RA-Basic[8] = 0x1234
             ev_var_set(0x20000009u),   // RA-Basic[9] = 0x1234
             ev(0x06000D00u),           // OffensiveCollision
-            ev(0x06010200u),           // SpecialOffensiveCollision
+            ev(0x06150F00u),           // SpecialOffensiveCollision
         };
         auto out = psax::filter_sfx_events(input);
         REQUIRE(out.size() == 4u);
         CHECK(out[0].cmd_id == 0x12000200u);
         CHECK(out[1].cmd_id == 0x12000200u);
         CHECK(out[2].cmd_id == 0x06000D00u);
-        CHECK(out[3].cmd_id == 0x06010200u);
+        CHECK(out[3].cmd_id == 0x06150F00u);
     }
 
     // D) RA-Basic write for a non-sound index (RA-Basic[7]) does NOT enable
@@ -191,7 +192,7 @@ TEST_CASE("audit_sfx: FitMario returns sensible non-empty results") {
         bool has_collision = false;
         bool has_ra_basic_write = false;
         for (const auto& e : r.events) {
-            if (e.cmd_id == 0x06000D00u || e.cmd_id == 0x06010200u) has_collision = true;
+            if (e.cmd_id == 0x06000D00u || e.cmd_id == 0x06150F00u) has_collision = true;
             if (e.cmd_id == 0x12000200u) has_ra_basic_write = true;
         }
         if (has_collision) CHECK(has_ra_basic_write);
