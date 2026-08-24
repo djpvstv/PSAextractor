@@ -6,6 +6,7 @@
 #include "psa/misc_section.hpp"
 #include "psa/subaction_flags.hpp"
 #include "psa/subaction_table.hpp"
+#include "psa/subroutine_scan.hpp"
 
 namespace psax {
 
@@ -118,6 +119,7 @@ SfxAuditReport audit_sfx(const MiscSection& ms, const SfxAuditOptions& opt) {
             if (relevant.empty()) continue;
 
             SfxAuditEntry entry;
+            entry.kind         = SfxAuditEntry::InSubAction;
             entry.subaction_id = i;
             entry.tab_label    = tab.label;
             entry.anim_name    = (i < flags.size())
@@ -127,6 +129,33 @@ SfxAuditReport audit_sfx(const MiscSection& ms, const SfxAuditOptions& opt) {
             report.entries.push_back(std::move(entry));
         }
     }
+
+    // Now: subroutines reachable from any subaction (transitively).
+    // collect_subroutines() already handles fault-tolerance internally
+    // (per-subroutine decode errors go into DiscoveredSubroutine::decode_error),
+    // so we don't need our own try/catch here.
+    const auto subs = collect_subroutines(ms);
+    for (const auto& s : subs) {
+        if (!s.decode_error.empty()) {
+            SfxAuditFailure f;
+            f.subaction_id = 0;             // n/a for subroutines
+            f.tab_label    = "Subroutine";
+            f.stored_ptr   = s.stored_ptr;
+            f.reason       = s.decode_error;
+            report.failures.push_back(std::move(f));
+            continue;
+        }
+        const auto relevant = filter_sfx_events(s.events, opt);
+        if (relevant.empty()) continue;
+
+        SfxAuditEntry entry;
+        entry.kind                   = SfxAuditEntry::InSubroutine;
+        entry.subroutine_stored_ptr  = s.stored_ptr;
+        entry.subroutine_callers     = s.callers;
+        entry.events                 = std::move(relevant);
+        report.entries.push_back(std::move(entry));
+    }
+
     return report;
 }
 

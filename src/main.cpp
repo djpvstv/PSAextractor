@@ -5,6 +5,7 @@
 #include "psa/misc_section.hpp"
 #include "psa/sfx_audit.hpp"
 #include "psa/subaction_table.hpp"
+#include "psa/subroutine_scan.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +26,11 @@ void print_usage() {
         "  psax <pac> --events <hex-off>                  decode events at a MISC stored offset\n"
         "  psax <pac> --audit-sfx [--min N] [--max N]     list SFX-relevant events across all subactions\n"
         "                                                 min/max gate SoundEffect ID inclusively\n"
-        "                                                 (decimal or 0x-prefixed hex)\n");
+        "                                                 (decimal or 0x-prefixed hex)\n"
+        "  psax <pac> --list-subroutines                  discover every subroutine reachable from any\n"
+        "                                                 SubAction (via SubRoutine/Goto/ConcurrentLoop)\n"
+        "                                                 and show its callers\n"
+        "  psax <pac> --list-subroutines --with-body      also print each subroutine's decoded events\n");
 }
 
 // Parse a non-negative integer written in decimal or, if 0x-prefixed, hex.
@@ -62,6 +67,45 @@ bool parse_audit_sfx_options(int argc, char** argv, int start,
     return true;
 }
 
+void list_subroutines_cli(const psax::PacFile& pac, bool with_body) {
+    auto misc = pac.find_misc_data();
+    if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    const auto subs = psax::collect_subroutines(ms);
+
+    for (const auto& s : subs) {
+        std::printf("Subroutine 0x%X  (resolved 0x%zX)  %zu events%s\n",
+                    s.stored_ptr, s.resolved_offset, s.events.size(),
+                    s.decode_error.empty() ? "" : "  [decode failed]");
+        if (!s.decode_error.empty()) {
+            std::printf("  ! %s\n", s.decode_error.c_str());
+        }
+        std::printf("  called by:\n");
+        for (const auto& c : s.callers) {
+            if (c.kind == psax::SubroutineCallSite::FromSubAction) {
+                std::printf("    SubAction 0x%zX %-5s [event %zu]\n",
+                            c.subaction_id, c.tab_label, c.event_index);
+            } else {
+                std::printf("    Subroutine 0x%X     [event %zu]\n",
+                            c.caller_stored_ptr, c.event_index);
+            }
+        }
+        if (with_body) {
+            for (std::size_t i = 0; i < s.events.size(); ++i) {
+                std::printf("  [%2zu] %-40s # %s\n",
+                            i, s.events[i].to_pretty_string().c_str(),
+                            s.events[i].to_raw_string().c_str());
+            }
+        }
+        std::printf("\n");
+    }
+
+    std::size_t failed = 0;
+    for (const auto& s : subs) if (!s.decode_error.empty()) ++failed;
+    std::printf("(%zu subroutines discovered; %zu failed to decode)\n",
+                subs.size(), failed);
+}
+
 void audit_sfx_cli(const psax::PacFile& pac, const psax::SfxAuditOptions& opt) {
     auto misc = pac.find_misc_data();
     if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
@@ -69,22 +113,55 @@ void audit_sfx_cli(const psax::PacFile& pac, const psax::SfxAuditOptions& opt) {
 
     const auto report = psax::audit_sfx(ms, opt);
     for (const auto& r : report.entries) {
-        const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
-        std::printf("Subaction 0x%zX - %s - %s\n",
-                    r.subaction_id, r.tab_label, name);
+        if (r.kind == psax::SfxAuditEntry::InSubAction) {
+            const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
+            std::printf("Subaction 0x%zX - %s - %s\n",
+                        r.subaction_id, r.tab_label, name);
+        } else {
+            std::printf("Subroutine 0x%X", r.subroutine_stored_ptr);
+            if (!r.subroutine_callers.empty()) {
+                std::printf("  (called from ");
+                // Show up to 3 callers to keep the line readable.
+                const std::size_t n = r.subroutine_callers.size() < 3
+                                        ? r.subroutine_callers.size() : 3;
+                for (std::size_t i = 0; i < n; ++i) {
+                    const auto& c = r.subroutine_callers[i];
+                    if (i > 0) std::printf(", ");
+                    if (c.kind == psax::SubroutineCallSite::FromSubAction) {
+                        std::printf("SubAction 0x%zX %s",
+                                    c.subaction_id, c.tab_label);
+                    } else {
+                        std::printf("Subroutine 0x%X", c.caller_stored_ptr);
+                    }
+                }
+                if (r.subroutine_callers.size() > n) {
+                    std::printf(", +%zu more", r.subroutine_callers.size() - n);
+                }
+                std::printf(")");
+            }
+            std::printf("\n");
+        }
         for (const auto& ev : r.events) {
             std::printf("  %s\n", ev.to_pretty_string().c_str());
         }
         std::printf("\n");
     }
 
+    // Count subactions vs subroutines separately in the summary.
+    std::size_t sa = 0, sr = 0;
+    for (const auto& r : report.entries) {
+        (r.kind == psax::SfxAuditEntry::InSubAction ? sa : sr) += 1;
+    }
     const bool has_min = opt.min_sound_id != 0u;
     const bool has_max = opt.max_sound_id != 0xFFFFFFFFu;
     if (has_min || has_max) {
-        std::printf("(%zu subaction-tabs; SoundEffect filtered to id in [0x%X, 0x%X])\n",
-                    report.entries.size(), opt.min_sound_id, opt.max_sound_id);
+        std::printf("(%zu locations = %zu subaction-tabs + %zu subroutines; "
+                    "SoundEffect filtered to id in [0x%X, 0x%X])\n",
+                    report.entries.size(), sa, sr,
+                    opt.min_sound_id, opt.max_sound_id);
     } else {
-        std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", report.entries.size());
+        std::printf("(%zu locations = %zu subaction-tabs + %zu subroutines)\n",
+                    report.entries.size(), sa, sr);
     }
 
     if (!report.failures.empty()) {
@@ -284,6 +361,10 @@ int main(int argc, char** argv) {
             psax::SfxAuditOptions opt;
             if (!parse_audit_sfx_options(argc, argv, 3, opt)) return 2;
             audit_sfx_cli(pac, opt);
+        } else if (std::strcmp(argv[2], "--list-subroutines") == 0) {
+            const bool with_body = (argc >= 4)
+                && std::strcmp(argv[3], "--with-body") == 0;
+            list_subroutines_cli(pac, with_body);
         } else if (argc >= 4 && std::strcmp(argv[2], "--events") == 0) {
             decode_events_at(pac, parse_hex(argv[3]));
         } else if (argc >= 4 && std::strcmp(argv[2], "--subaction") == 0) {

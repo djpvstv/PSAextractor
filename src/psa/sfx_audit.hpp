@@ -1,6 +1,7 @@
 #pragma once
 
 #include "psa/event.hpp"
+#include "psa/subroutine_scan.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -12,11 +13,20 @@ namespace psax {
 class MiscSection;
 
 // One result group from a sound-effect audit: filtered events for one
-// (subaction_id, tab) pair, plus the resolved animation name.
+// location. Subactions and subroutines share this type — check `kind`.
 struct SfxAuditEntry {
+    enum LocationKind { InSubAction, InSubroutine };
+    LocationKind kind = InSubAction;
+
+    // For InSubAction:
     std::size_t subaction_id = 0;
     const char* tab_label    = "";   // "Main" / "GFX" / "SFX" / "Other"
     std::string anim_name;
+
+    // For InSubroutine:
+    uint32_t subroutine_stored_ptr = 0;
+    std::vector<SubroutineCallSite> subroutine_callers;
+
     std::vector<Event> events;       // filtered per filter_sfx_events()
 };
 
@@ -61,10 +71,12 @@ struct SfxAuditReport {
     std::vector<SfxAuditFailure> failures;
 };
 
-// Walk all 4 tabs of every subaction in `ms`. Any (subaction, tab) whose
-// event stream decode throws is captured in `failures` and skipped rather
-// than aborting the audit — special/article files often have layouts where
-// not every SubAction<X> slot is a valid event list.
+// Walk all 4 tabs of every subaction in `ms` and every reachable subroutine.
+// Any location whose event stream decode throws is captured in `failures`
+// and skipped rather than aborting the audit — special/article files often
+// have layouts where not every SubAction<X> slot is a valid event list.
+// Subactions are added first (subaction-major); subroutines follow, sorted
+// by resolved MISC offset.
 SfxAuditReport audit_sfx(const MiscSection& ms,
                          const SfxAuditOptions& opt = {});
 
