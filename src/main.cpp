@@ -67,8 +67,8 @@ void audit_sfx_cli(const psax::PacFile& pac, const psax::SfxAuditOptions& opt) {
     if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
     psax::MiscSection ms(pac.entry_data(*misc), misc->length);
 
-    const auto results = psax::audit_sfx(ms, opt);
-    for (const auto& r : results) {
+    const auto report = psax::audit_sfx(ms, opt);
+    for (const auto& r : report.entries) {
         const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
         std::printf("Subaction 0x%zX - %s - %s\n",
                     r.subaction_id, r.tab_label, name);
@@ -82,9 +82,25 @@ void audit_sfx_cli(const psax::PacFile& pac, const psax::SfxAuditOptions& opt) {
     const bool has_max = opt.max_sound_id != 0xFFFFFFFFu;
     if (has_min || has_max) {
         std::printf("(%zu subaction-tabs; SoundEffect filtered to id in [0x%X, 0x%X])\n",
-                    results.size(), opt.min_sound_id, opt.max_sound_id);
+                    report.entries.size(), opt.min_sound_id, opt.max_sound_id);
     } else {
-        std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", results.size());
+        std::printf("(%zu subaction-tabs contain SFX-relevant events)\n", report.entries.size());
+    }
+
+    if (!report.failures.empty()) {
+        std::fprintf(stderr, "\n%zu subaction-tabs failed to decode:\n", report.failures.size());
+        // Show the first 10 in detail so the user can drill in with --subaction / --events;
+        // list only IDs for the rest so the output stays manageable.
+        const std::size_t detail = report.failures.size() < 10 ? report.failures.size() : 10;
+        for (std::size_t i = 0; i < detail; ++i) {
+            const auto& f = report.failures[i];
+            std::fprintf(stderr, "  subaction 0x%zX %s at stored 0x%X: %s\n",
+                         f.subaction_id, f.tab_label, f.stored_ptr, f.reason.c_str());
+        }
+        if (report.failures.size() > detail) {
+            std::fprintf(stderr, "  ... and %zu more\n",
+                         report.failures.size() - detail);
+        }
     }
 }
 
@@ -114,7 +130,7 @@ void print_summary(const psax::PacFile& pac) {
 
     if (ms.data_table().empty()) return;
     auto root = psax::load_character_root(ms);
-    std::printf("\n--- Character Root (from data_table[0], resolved) ---\n");
+    std::printf("\n--- Character Root (from data_table entry 'data', resolved) ---\n");
     for (std::size_t i = 0; i < psax::CharacterRoot::kFieldCount; ++i) {
         auto f = static_cast<psax::CharacterRoot::Field>(i);
         std::printf("  %-24s 0x%X\n",

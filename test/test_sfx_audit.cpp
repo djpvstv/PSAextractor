@@ -179,12 +179,13 @@ TEST_CASE("audit_sfx: FitMario returns sensible non-empty results") {
     REQUIRE(misc);
     psax::MiscSection ms(pac.entry_data(*misc), misc->length);
 
-    const auto results = psax::audit_sfx(ms);
-    CHECK(results.size() > 20u);   // still expect many SFX hits from direct sounds
+    const auto report = psax::audit_sfx(ms);
+    CHECK(report.entries.size() > 20u);   // still expect many SFX hits from direct sounds
+    CHECK(report.failures.empty());       // FitMario decodes cleanly end-to-end
 
     // Every entry should have already passed the contextual filter — if a
     // collision appears, the same entry MUST also have an RA-Basic[8..10] write.
-    for (const auto& r : results) {
+    for (const auto& r : report.entries) {
         CAPTURE(r.subaction_id);
         CAPTURE(r.tab_label);
         REQUIRE(!r.events.empty());

@@ -45,9 +45,27 @@ bool event_is_sfx_candidate(const Event& e);
 std::vector<Event> filter_sfx_events(const std::vector<Event>& events,
                                      const SfxAuditOptions& opt = {});
 
-// Walk all 4 tabs of every subaction in `ms`. Returns one entry per
-// (subaction, tab) that has at least one event after filter_sfx_events().
-std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms,
-                                     const SfxAuditOptions& opt = {});
+// One record of a subaction/tab whose event stream failed to decode
+// (usually because the file's structure differs from a normal fighter PAC
+// and the event_list_ptr didn't point at a valid event list).
+struct SfxAuditFailure {
+    std::size_t subaction_id = 0;
+    const char* tab_label    = "";
+    uint32_t    stored_ptr   = 0;
+    std::string reason;      // exception message from EventDecoder
+};
+
+// Composite return type so callers know how much coverage they got.
+struct SfxAuditReport {
+    std::vector<SfxAuditEntry>   entries;
+    std::vector<SfxAuditFailure> failures;
+};
+
+// Walk all 4 tabs of every subaction in `ms`. Any (subaction, tab) whose
+// event stream decode throws is captured in `failures` and skipped rather
+// than aborting the audit — special/article files often have layouts where
+// not every SubAction<X> slot is a valid event list.
+SfxAuditReport audit_sfx(const MiscSection& ms,
+                         const SfxAuditOptions& opt = {});
 
 } // namespace psax

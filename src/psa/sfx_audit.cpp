@@ -70,15 +70,14 @@ std::vector<Event> filter_sfx_events(const std::vector<Event>& events,
     return out;
 }
 
-std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms,
-                                     const SfxAuditOptions& opt) {
-    std::vector<SfxAuditEntry> out;
+SfxAuditReport audit_sfx(const MiscSection& ms, const SfxAuditOptions& opt) {
+    SfxAuditReport report;
     const auto root = load_character_root(ms);
 
     const std::size_t count = subaction_main_count(
         root.fields[CharacterRoot::SubActionMain],
         root.fields[CharacterRoot::SubActionGFX]);
-    if (count == 0) return out;
+    if (count == 0) return report;
 
     const auto flags = read_subaction_flags(
         ms, root.fields[CharacterRoot::SubActionFlags], count);
@@ -97,9 +96,24 @@ std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms,
         for (const auto& tab : tabs) {
             const auto table = read_subaction_table(
                 ms, root.fields[tab.field], i + 1);
-            if (i >= table.size() || table[i] == 0) continue;
+            if (i >= table.size()) continue;
+            const uint32_t stored = table[i];
+            // Known "empty slot" sentinels — treat as absent, not as errors.
+            if (stored == 0u || stored == 0xFFFFFFFFu) continue;
 
-            const auto events   = dec.decode(resolve_misc_ptr(table[i]));
+            std::vector<Event> events;
+            try {
+                events = dec.decode(resolve_misc_ptr(stored));
+            } catch (const std::exception& ex) {
+                SfxAuditFailure f;
+                f.subaction_id = i;
+                f.tab_label    = tab.label;
+                f.stored_ptr   = stored;
+                f.reason       = ex.what();
+                report.failures.push_back(std::move(f));
+                continue;
+            }
+
             const auto relevant = filter_sfx_events(events, opt);
             if (relevant.empty()) continue;
 
@@ -110,10 +124,10 @@ std::vector<SfxAuditEntry> audit_sfx(const MiscSection& ms,
                                     ? subaction_anim_name(ms, flags[i])
                                     : std::string{};
             entry.events       = std::move(relevant);
-            out.push_back(std::move(entry));
+            report.entries.push_back(std::move(entry));
         }
     }
-    return out;
+    return report;
 }
 
 } // namespace psax
