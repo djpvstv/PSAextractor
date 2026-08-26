@@ -4,6 +4,7 @@
 #include "psa/event_decoder.hpp"
 #include "psa/misc_section.hpp"
 #include "psa/sfx_audit.hpp"
+#include "psa/subaction_flags.hpp"
 #include "psa/subaction_table.hpp"
 #include "psa/subroutine_scan.hpp"
 
@@ -19,7 +20,8 @@ void print_usage() {
     std::fprintf(stderr,
         "usage:\n"
         "  psax <pac>                                     PAC + MISC summary\n"
-        "  psax <pac> --list-subactions                   list non-empty SubActionMain slots\n"
+        "  psax <pac> --list-subactions [--with-body]     list every subaction with content in any tab\n"
+        "                                                 --with-body: also decode & print each tab\n"
         "  psax <pac> --subaction <id> [tab]              decode events for a subaction\n"
         "                                                 tab = main | gfx | sfx | other\n"
         "                                                 (default: all four)\n"
@@ -215,28 +217,9 @@ void print_summary(const psax::PacFile& pac) {
     }
 }
 
-void list_subactions(const psax::PacFile& pac) {
-    auto misc = pac.find_misc_data();
-    if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
-    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
-    auto root = psax::load_character_root(ms);
-    const std::size_t count = psax::subaction_main_count(
-        root.fields[psax::CharacterRoot::SubActionMain],
-        root.fields[psax::CharacterRoot::SubActionGFX]);
-    auto sat  = psax::read_subaction_table(
-        ms, root.fields[psax::CharacterRoot::SubActionMain], count);
-
-    std::printf("SubActionMain (%zu total, non-empty only):\n\n", count);
-    std::printf("  %-6s %-14s %s\n", "id", "event_list_ptr", "resolved");
-    int shown = 0;
-    for (std::size_t i = 0; i < sat.size(); ++i) {
-        if (sat[i] == 0) continue;
-        std::printf("  0x%-4zX 0x%-12X 0x%zX\n",
-                    i, sat[i], psax::resolve_misc_ptr(sat[i]));
-        ++shown;
-    }
-    std::printf("\n  (%d non-empty of %zu)\n", shown, count);
-}
+// Forward-declared; the real body lives after decode_subaction_tab so it can
+// reuse kTabs / decode_subaction_tab.
+void list_subactions(const psax::PacFile& pac, bool with_body);
 
 void decode_events_at(const psax::PacFile& pac, uint32_t stored_offset) {
     auto misc = pac.find_misc_data();
@@ -305,6 +288,71 @@ bool decode_subaction_tab(const psax::PacFile& pac,
     return true;
 }
 
+// Non-empty across ALL four tabs, not just Main. When `with_body` is true,
+// each populated tab is decoded (same output as `--subaction <id>`).
+void list_subactions(const psax::PacFile& pac, bool with_body) {
+    auto misc = pac.find_misc_data();
+    if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    auto root = psax::load_character_root(ms);
+    const std::size_t count = psax::subaction_main_count(
+        root.fields[psax::CharacterRoot::SubActionMain],
+        root.fields[psax::CharacterRoot::SubActionGFX]);
+
+    // Read all four tables + anim names once.
+    std::vector<uint32_t> tabs_data[4];
+    for (std::size_t t = 0; t < 4; ++t) {
+        tabs_data[t] = psax::read_subaction_table(
+            ms, root.fields[kTabs[t].root_field], count);
+    }
+    const auto flags = psax::read_subaction_flags(
+        ms, root.fields[psax::CharacterRoot::SubActionFlags], count);
+
+    auto populated = [](uint32_t v) { return v != 0u && v != 0xFFFFFFFFu; };
+
+    if (!with_body) {
+        std::printf("SubActions (%zu total, non-empty in any tab):\n\n", count);
+        std::printf("  %-6s  %-28s  %-9s %-9s %-9s %-9s\n",
+                    "id", "anim", "Main", "GFX", "SFX", "Other");
+    }
+
+    std::size_t shown = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        bool any = false;
+        for (std::size_t t = 0; t < 4; ++t) {
+            if (populated(tabs_data[t][i])) { any = true; break; }
+        }
+        if (!any) continue;
+        ++shown;
+
+        const std::string anim = (i < flags.size())
+            ? psax::subaction_anim_name(ms, flags[i]) : std::string{};
+
+        if (!with_body) {
+            // Show the stored event_list_ptr per tab; "-" if the tab is empty.
+            char cell[4][12] = {"-", "-", "-", "-"};
+            for (std::size_t t = 0; t < 4; ++t) {
+                if (populated(tabs_data[t][i])) {
+                    std::snprintf(cell[t], sizeof(cell[t]), "0x%X", tabs_data[t][i]);
+                }
+            }
+            std::printf("  0x%-4zX  %-28s  %-9s %-9s %-9s %-9s\n",
+                        i, anim.empty() ? "<unnamed>" : anim.c_str(),
+                        cell[0], cell[1], cell[2], cell[3]);
+        } else {
+            std::printf("=== SubAction 0x%zX%s%s ===\n\n",
+                        i,
+                        anim.empty() ? "" : " - ",
+                        anim.c_str());
+            for (const auto& t : kTabs) {
+                decode_subaction_tab(pac, ms, root, i, t);
+            }
+        }
+    }
+
+    std::printf("\n(%zu non-empty of %zu)\n", shown, count);
+}
+
 // If tab_filter is nullptr, decode all four tabs; otherwise decode just the named one.
 void decode_subaction(const psax::PacFile& pac, std::size_t id, const char* tab_filter) {
     auto misc = pac.find_misc_data();
@@ -356,7 +404,9 @@ int main(int argc, char** argv) {
         if (argc == 2) {
             print_summary(pac);
         } else if (std::strcmp(argv[2], "--list-subactions") == 0) {
-            list_subactions(pac);
+            const bool with_body = (argc >= 4)
+                && std::strcmp(argv[3], "--with-body") == 0;
+            list_subactions(pac, with_body);
         } else if (std::strcmp(argv[2], "--audit-sfx") == 0) {
             psax::SfxAuditOptions opt;
             if (!parse_audit_sfx_options(argc, argv, 3, opt)) return 2;
