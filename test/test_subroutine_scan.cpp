@@ -90,12 +90,22 @@ TEST_CASE("collect_subroutines: no discovered subroutine overlaps a SubAction en
     }
 }
 
-TEST_CASE("collect_subroutines: FitMario has at least one real subroutine") {
-    // Mario is a simple character — most SubRoutine/Goto calls actually target
-    // subaction entry points (correctly filtered out). A small handful remain
-    // as true subroutines. Just assert we find at least one, that each has
-    // callers, and that results are sorted by offset.
+TEST_CASE("collect_subroutines: FitMario finds zero real subroutines") {
+    // Mario's 169 SubRoutine/Goto calls all target either existing subactions
+    // (correctly deduped) or throw-parameter blocks / garbage (correctly
+    // rejected by the event-list-start heuristic). Zero is the right answer.
     auto pac = psax::PacFile::load(sample("FitMario.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    const auto subs = psax::collect_subroutines(ms);
+    CHECK(subs.empty());
+}
+
+TEST_CASE("collect_subroutines: FitKirby finds real subroutines with callers") {
+    // Kirby's copy-ability logic uses real subroutines. Assert we find some,
+    // each has a caller, and results are sorted by offset.
+    auto pac = psax::PacFile::load(sample("FitKirby.pac"));
     auto misc = pac.find_misc_data();
     REQUIRE(misc);
     psax::MiscSection ms(pac.entry_data(*misc), misc->length);
@@ -106,6 +116,8 @@ TEST_CASE("collect_subroutines: FitMario has at least one real subroutine") {
     for (const auto& s : subs) {
         CAPTURE(s.stored_ptr);
         CHECK(!s.callers.empty());
+        // Every discovered subroutine decoded cleanly (heuristic did its job).
+        CHECK(s.decode_error.empty());
     }
     for (std::size_t i = 1; i < subs.size(); ++i) {
         CHECK(subs[i - 1].resolved_offset < subs[i].resolved_offset);

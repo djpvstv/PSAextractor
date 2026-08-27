@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/FitMario.pac\" --find-var \"RA-Bit[18]\")",
+      "Bash(c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe c:/Users/pvstv/Desktop/PSAextractor/test/pacs/FitMario.pac --list-subactions --with-body)",
+      "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/FitMario.pac\" --find-var \"RA-Bit[16]\")",
+      "Bash(c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe c:/Users/pvstv/Desktop/PSAextractor/test/pacs/Fighter.pac --audit-sfx)",
+      "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/Fighter.pac\")"
+    ]
+  }
+}

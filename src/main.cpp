@@ -7,6 +7,7 @@
 #include "psa/subaction_flags.hpp"
 #include "psa/subaction_table.hpp"
 #include "psa/subroutine_scan.hpp"
+#include "psa/variable_audit.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -32,7 +33,13 @@ void print_usage() {
         "  psax <pac> --list-subroutines                  discover every subroutine reachable from any\n"
         "                                                 SubAction (via SubRoutine/Goto/ConcurrentLoop)\n"
         "                                                 and show its callers\n"
-        "  psax <pac> --list-subroutines --with-body      also print each subroutine's decoded events\n");
+        "  psax <pac> --list-subroutines --with-body      also print each subroutine's decoded events\n"
+        "  psax <pac> --audit-var                         list every event that touches any variable\n"
+        "                                                 (get/set), grouped by subaction+tab or\n"
+        "                                                 subroutine\n"
+        "  psax <pac> --find-var <descriptor>             same as --audit-var, filtered to one variable.\n"
+        "                                                 descriptor: DSL form like 'RA-Basic[8]' or\n"
+        "                                                 raw hex like '0x20000008'\n");
 }
 
 // Parse a non-negative integer written in decimal or, if 0x-prefixed, hex.
@@ -67,6 +74,79 @@ bool parse_audit_sfx_options(int argc, char** argv, int start,
         }
     }
     return true;
+}
+
+// Shared printer for VarAuditEntry — mirrors the SFX audit output style.
+void print_var_entry(const psax::VarAuditEntry& r) {
+    if (r.kind == psax::VarAuditEntry::InSubAction) {
+        const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
+        std::printf("Subaction 0x%zX - %s - %s\n",
+                    r.subaction_id, r.tab_label, name);
+    } else {
+        std::printf("Subroutine 0x%X", r.subroutine_stored_ptr);
+        if (!r.subroutine_callers.empty()) {
+            std::printf("  (called from ");
+            const std::size_t n = r.subroutine_callers.size() < 3
+                                    ? r.subroutine_callers.size() : 3;
+            for (std::size_t i = 0; i < n; ++i) {
+                const auto& c = r.subroutine_callers[i];
+                if (i > 0) std::printf(", ");
+                if (c.kind == psax::SubroutineCallSite::FromSubAction) {
+                    std::printf("SubAction 0x%zX %s",
+                                c.subaction_id, c.tab_label);
+                } else {
+                    std::printf("Subroutine 0x%X", c.caller_stored_ptr);
+                }
+            }
+            if (r.subroutine_callers.size() > n) {
+                std::printf(", +%zu more", r.subroutine_callers.size() - n);
+            }
+            std::printf(")");
+        }
+        std::printf("\n");
+    }
+    for (const auto& ev : r.events) {
+        std::printf("  %s\n", ev.to_pretty_string().c_str());
+    }
+    std::printf("\n");
+}
+
+void audit_var_cli(const psax::PacFile& pac, const psax::VarAuditOptions& opt) {
+    auto misc = pac.find_misc_data();
+    if (!misc) { std::fprintf(stderr, "no MISC section\n"); return; }
+    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+    const auto report = psax::audit_variables(ms, opt);
+
+    for (const auto& r : report.entries) print_var_entry(r);
+
+    std::size_t sa = 0, sr = 0;
+    for (const auto& r : report.entries) {
+        (r.kind == psax::VarAuditEntry::InSubAction ? sa : sr) += 1;
+    }
+    if (opt.has_target) {
+        std::printf("(%zu locations = %zu subaction-tabs + %zu subroutines; "
+                    "filtered to variable 0x%08X)\n",
+                    report.entries.size(), sa, sr, opt.target_var_raw);
+    } else {
+        std::printf("(%zu locations = %zu subaction-tabs + %zu subroutines)\n",
+                    report.entries.size(), sa, sr);
+    }
+
+    if (!report.failures.empty()) {
+        std::fprintf(stderr, "\n%zu locations failed to decode:\n",
+                     report.failures.size());
+        const std::size_t detail = report.failures.size() < 10
+                                        ? report.failures.size() : 10;
+        for (std::size_t i = 0; i < detail; ++i) {
+            const auto& f = report.failures[i];
+            std::fprintf(stderr, "  subaction 0x%zX %s at stored 0x%X: %s\n",
+                         f.subaction_id, f.tab_label, f.stored_ptr, f.reason.c_str());
+        }
+        if (report.failures.size() > detail) {
+            std::fprintf(stderr, "  ... and %zu more\n",
+                         report.failures.size() - detail);
+        }
+    }
 }
 
 void list_subroutines_cli(const psax::PacFile& pac, bool with_body) {
@@ -208,7 +288,13 @@ void print_summary(const psax::PacFile& pac) {
     std::printf("  external_subs:   %zu entries\n", ms.external_subs().size());
 
     if (ms.data_table().empty()) return;
-    auto root = psax::load_character_root(ms);
+    psax::CharacterRoot root{};
+    try {
+        root = psax::load_character_root(ms);
+    } catch (const std::exception& ex) {
+        std::printf("\n--- Character Root ---\n  (not available: %s)\n", ex.what());
+        return;
+    }
     std::printf("\n--- Character Root (from data_table entry 'data', resolved) ---\n");
     for (std::size_t i = 0; i < psax::CharacterRoot::kFieldCount; ++i) {
         auto f = static_cast<psax::CharacterRoot::Field>(i);
@@ -415,6 +501,19 @@ int main(int argc, char** argv) {
             const bool with_body = (argc >= 4)
                 && std::strcmp(argv[3], "--with-body") == 0;
             list_subroutines_cli(pac, with_body);
+        } else if (std::strcmp(argv[2], "--audit-var") == 0) {
+            audit_var_cli(pac, {});
+        } else if (argc >= 4 && std::strcmp(argv[2], "--find-var") == 0) {
+            psax::VarAuditOptions opt;
+            if (!psax::parse_variable_descriptor(argv[3], opt.target_var_raw)) {
+                std::fprintf(stderr,
+                    "bad variable descriptor: %s\n"
+                    "  expected 'RA-Basic[8]' style or '0x20000008' hex\n",
+                    argv[3]);
+                return 2;
+            }
+            opt.has_target = true;
+            audit_var_cli(pac, opt);
         } else if (argc >= 4 && std::strcmp(argv[2], "--events") == 0) {
             decode_events_at(pac, parse_hex(argv[3]));
         } else if (argc >= 4 && std::strcmp(argv[2], "--subaction") == 0) {

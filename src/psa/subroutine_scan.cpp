@@ -24,6 +24,31 @@ constexpr uint32_t kCmdSubRoutine             = 0x00070100u;
 constexpr uint32_t kCmdGoto                   = 0x00090100u;
 constexpr uint32_t kCmdConcurrentInfiniteLoop = 0x0D000200u;
 
+// Heuristic: does the u32 at `resolved_off` look like the start of a real
+// PSA event list? Real cmd_ids always have their low byte = 0 (the last
+// nibble encodes command-family details, but the very last byte is 0), and
+// no observed real command has more than ~16 args in its byte-2 arg-count.
+// Values like 0x0001326C (grab throw-parameter table) or 0xFFFFFFFF fail
+// both checks.
+//
+// Grab / Catch subactions call `SubRoutine(ptr)` where `ptr` addresses a
+// throw-parameter block, NOT an event list. We use this check to filter
+// those out during subroutine discovery so they don't produce noisy
+// "failed to decode" reports.
+bool looks_like_event_list_start(const uint8_t* misc_data, std::size_t misc_size,
+                                 std::size_t resolved_off) {
+    if (resolved_off + 4 > misc_size) return false;
+    const uint32_t cmd =
+          (uint32_t(misc_data[resolved_off    ]) << 24)
+        | (uint32_t(misc_data[resolved_off + 1]) << 16)
+        | (uint32_t(misc_data[resolved_off + 2]) <<  8)
+        | (uint32_t(misc_data[resolved_off + 3]));
+    if (cmd == 0)             return false;  // starts with terminator = empty/invalid
+    if ((cmd & 0xFFu) != 0u)  return false;  // real cmd_ids have low byte = 0
+    if (((cmd >> 8) & 0xFFu) > 32u) return false;  // arg_count sanity cap
+    return true;
+}
+
 // Return true if the arg carries a MISC-offset pointer we can resolve.
 bool arg_looks_like_event_ptr(const Arg& a) {
     // Both Pointer (type 2) and Value (type 0) have been observed carrying
@@ -115,12 +140,14 @@ std::vector<DiscoveredSubroutine> collect_subroutines(const MiscSection& ms) {
         for (std::size_t idx = 0; idx < events.size(); ++idx) {
             const uint32_t tgt = event_subroutine_target(events[idx]);
             if (tgt == 0u || tgt == 0xFFFFFFFFu) continue;
-            // Skip if this target is already a subaction's entry point —
-            // it's a cross-reference, not a subroutine.
+            // Skip cross-references into existing subactions.
             if (subaction_ptrs.count(tgt) > 0) continue;
+            // Skip targets that don't look like event lists (throw-parameter
+            // tables, grab data, other non-code structures).
+            if (!looks_like_event_list_start(ms.data(), ms.size(),
+                                             resolve_misc_ptr(tgt))) continue;
             auto& sub = ensure_slot(tgt);
             add_callsite(sub, idx);
-            // Enqueue only if not yet decoded.
             if (sub.events.empty() && sub.decode_error.empty()) {
                 to_visit.push(tgt);
             }
