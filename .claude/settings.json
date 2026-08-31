@@ -5,7 +5,9 @@
       "Bash(c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe c:/Users/pvstv/Desktop/PSAextractor/test/pacs/FitMario.pac --list-subactions --with-body)",
       "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/FitMario.pac\" --find-var \"RA-Bit[16]\")",
       "Bash(c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe c:/Users/pvstv/Desktop/PSAextractor/test/pacs/Fighter.pac --audit-sfx)",
-      "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/Fighter.pac\")"
+      "Bash(\"c:/Users/pvstv/Desktop/PSAextractor/build/src/Debug/psax.exe\" \"c:/Users/pvstv/Desktop/PSAextractor/test/pacs/Fighter.pac\")",
+      "Bash(ls \"C:/Users/pvstv/Documents/Smash_Work/Brawl_Work/Tools/PSACompressorV0_50b/Data/\" 2>&1 | head -20 *)",
+      "Read(//c/Users/pvstv/Documents/Smash_Work/Brawl_Work/Tools/PSACompressorV0_50b/CharSpecific/**)"
     ]
   }
 }

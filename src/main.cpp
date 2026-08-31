@@ -3,6 +3,7 @@
 #include "psa/command_table.hpp"
 #include "psa/event_decoder.hpp"
 #include "psa/misc_section.hpp"
+#include "psa/animation_flags.hpp"
 #include "psa/sfx_audit.hpp"
 #include "psa/subaction_flags.hpp"
 #include "psa/subaction_table.hpp"
@@ -398,8 +399,8 @@ void list_subactions(const psax::PacFile& pac, bool with_body) {
 
     if (!with_body) {
         std::printf("SubActions (%zu total, non-empty in any tab):\n\n", count);
-        std::printf("  %-6s  %-28s  %-9s %-9s %-9s %-9s\n",
-                    "id", "anim", "Main", "GFX", "SFX", "Other");
+        std::printf("  %-6s  %-28s  %-9s %-9s %-9s %-9s  %s\n",
+                    "id", "anim", "Main", "GFX", "SFX", "Other", "flags");
     }
 
     std::size_t shown = 0;
@@ -422,9 +423,12 @@ void list_subactions(const psax::PacFile& pac, bool with_body) {
                     std::snprintf(cell[t], sizeof(cell[t]), "0x%X", tabs_data[t][i]);
                 }
             }
-            std::printf("  0x%-4zX  %-28s  %-9s %-9s %-9s %-9s\n",
+            const std::string flag_str = (i < flags.size())
+                ? psax::format_animation_flags(flags[i].flags) : std::string("-");
+            std::printf("  0x%-4zX  %-28s  %-9s %-9s %-9s %-9s  %s\n",
                         i, anim.empty() ? "<unnamed>" : anim.c_str(),
-                        cell[0], cell[1], cell[2], cell[3]);
+                        cell[0], cell[1], cell[2], cell[3],
+                        flag_str.c_str());
         } else {
             std::printf("=== SubAction 0x%zX%s%s ===\n\n",
                         i,

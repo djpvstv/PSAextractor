@@ -12,6 +12,7 @@ add_library(psax_core
     psa/subaction_table.cpp
     psa/subroutine_scan.cpp
     psa/variable_audit.cpp
+    psa/animation_flags.cpp
     psa/subaction_flags.cpp
     psa/sfx_audit.cpp
 )

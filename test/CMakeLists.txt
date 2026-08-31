@@ -16,6 +16,7 @@ add_executable(psax_tests
     test_subroutine_scan.cpp
     test_variable_audit.cpp
     test_regression_sweep.cpp
+    test_animation_flags.cpp
     test_sfx_audit.cpp
 )
 target_link_libraries(psax_tests PRIVATE psax_core doctest::doctest)
