@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)   # 3.15 needed for CMAKE_MSVC_RUNTIME_LIBRARY
 project(PSAextractor CXX)
 
 set(CMAKE_CXX_STANDARD 17)

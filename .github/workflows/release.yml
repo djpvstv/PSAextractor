@@ -1,0 +1,119 @@
+# Manual multi-platform release build.
+#
+# Trigger: GitHub -> Actions tab -> "Release build" -> "Run workflow".
+# Provide a tag name (e.g. "v0.1.0"). The workflow will:
+#   1. Build + run the doctest suite in Release mode on Windows, Linux, macOS.
+#   2. Package the psax binary + REQUIREMENTS.md into a zip (Windows) or
+#      tar.gz (Unix).
+#   3. Create a GitHub Release with that tag and attach all three artifacts.
+#
+# On Windows the binary is linked against the static MSVC runtime so end users
+# don't need the Visual C++ Redistributable installed.
+#
+# No CI runs on plain `git push` — this workflow only fires when you trigger
+# it by hand.
+
+name: Release build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+# The release job needs to create/update a GitHub Release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: psax-windows-x64.zip
+            binary_path: build/src/Release/psax.exe
+          - os: ubuntu-latest
+            artifact: psax-linux-x64.tar.gz
+            binary_path: build/src/psax
+          - os: macos-latest
+            artifact: psax-macos-arm64.tar.gz
+            binary_path: build/src/psax
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Windows: use the VS generator + statically-linked runtime so the exe
+      # is standalone (no VC++ Redist required on the target machine).
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build
+          -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
+      # Unix: single-config generator, Release build type.
+      - name: Configure (Unix)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      # Run the doctest suite before shipping. A failing test aborts the release.
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "${{ matrix.binary_path }}" dist/
+          Copy-Item REQUIREMENTS.md dist/
+          Compress-Archive -Path dist/* -DestinationPath "${{ matrix.artifact }}"
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp "${{ matrix.binary_path }}" dist/
+          cp REQUIREMENTS.md dist/
+          tar -C dist -czf "${{ matrix.artifact }}" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          files: artifacts/*
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
