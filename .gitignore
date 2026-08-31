@@ -1,7 +1,7 @@
 build/
 out/
-.vs/
-.vscode/
+test/pacs/
+.*/
 CMakeSettings.json
 CMakeUserPresets.json
 *.user
