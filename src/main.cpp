@@ -18,8 +18,11 @@
 
 namespace {
 
+std::string PSAX_VERSION {"0.2.1"};
+
 void print_usage() {
     std::fprintf(stderr,
+        "version: %s\n"
         "usage:\n"
         "  psax <pac>                                     PAC + MISC summary\n"
         "  psax <pac> --list-subactions [--with-body]     list every subaction with content in any tab\n"
@@ -31,16 +34,17 @@ void print_usage() {
         "  psax <pac> --audit-sfx [--min N] [--max N]     list SFX-relevant events across all subactions\n"
         "                                                 min/max gate SoundEffect ID inclusively\n"
         "                                                 (decimal or 0x-prefixed hex)\n"
-        "  psax <pac> --list-subroutines                  discover every subroutine reachable from any\n"
+        "  psax <pac> --list-subroutines [--with-body]    discover every subroutine reachable from any\n"
         "                                                 SubAction (via SubRoutine/Goto/ConcurrentLoop)\n"
-        "                                                 and show its callers\n"
-        "  psax <pac> --list-subroutines --with-body      also print each subroutine's decoded events\n"
+        "                                                 and show its callers. optionally print each\n"
+        "                                                 subroutine's decoded events\n"
         "  psax <pac> --audit-var                         list every event that touches any variable\n"
         "                                                 (get/set), grouped by subaction+tab or\n"
         "                                                 subroutine\n"
         "  psax <pac> --find-var <descriptor>             same as --audit-var, filtered to one variable.\n"
         "                                                 descriptor: DSL form like 'RA-Basic[8]' or\n"
-        "                                                 raw hex like '0x20000008'\n");
+        "                                                 raw hex like '0x20000008'\n",
+    PSAX_VERSION.c_str());
 }
 
 // Parse a non-negative integer written in decimal or, if 0x-prefixed, hex.
@@ -527,6 +531,7 @@ int main(int argc, char** argv) {
             print_usage();
             return 2;
         }
+        std::printf("version: %s\n",PSAX_VERSION.c_str());
         return 0;
     } catch (const std::exception& e) {
         std::fprintf(stderr, "error: %s\n", e.what());
