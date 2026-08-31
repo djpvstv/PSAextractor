@@ -2,10 +2,14 @@
 #
 # Trigger: GitHub -> Actions tab -> "Release build" -> "Run workflow".
 # Provide a tag name (e.g. "v0.1.0"). The workflow will:
-#   1. Build + run the doctest suite in Release mode on Windows, Linux, macOS.
+#   1. Build psax in Release mode on Windows, Linux, macOS.
 #   2. Package the psax binary + REQUIREMENTS.md into a zip (Windows) or
 #      tar.gz (Unix).
 #   3. Create a GitHub Release with that tag and attach all three artifacts.
+#
+# Tests are NOT run in CI — they depend on real .pac fixtures that live
+# only on local disk (gitignored). Run the doctest suite locally before
+# triggering a release: `ctest --test-dir build -C Debug --output-on-failure`.
 #
 # On Windows the binary is linked against the static MSVC runtime so end users
 # don't need the Visual C++ Redistributable installed.
@@ -39,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2022
             artifact: psax-windows-x64.zip
             binary_path: build/src/Release/psax.exe
           - os: ubuntu-latest
@@ -61,18 +65,22 @@ jobs:
           cmake -S . -B build
           -G "Visual Studio 17 2022" -A x64
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       # Unix: single-config generator, Release build type.
       - name: Configure (Unix)
         if: runner.os != 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build --config Release
 
-      # Run the doctest suite before shipping. A failing test aborts the release.
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+      # Test suite is intentionally NOT run here: it depends on real .pac
+      # fixtures under test/pacs/ which are gitignored.
+      # Tests are validated locally before release.
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
