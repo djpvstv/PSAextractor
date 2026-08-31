@@ -1,6 +1,13 @@
 build/
 out/
 test/pacs/
+
+# Local release dry-run artifacts (mimicking .github/workflows/release.yml)
+dist/
+dist-verify/
+psax-windows-x64.zip
+psax-linux-x64.tar.gz
+psax-macos-arm64.tar.gz
 .*/
 CMakeSettings.json
 CMakeUserPresets.json

@@ -3,7 +3,7 @@
 # Trigger: GitHub -> Actions tab -> "Release build" -> "Run workflow".
 # Provide a tag name (e.g. "v0.1.0"). The workflow will:
 #   1. Build psax in Release mode on Windows, Linux, macOS.
-#   2. Package the psax binary + REQUIREMENTS.md into a zip (Windows) or
+#   2. Package the psax binary + README.md into a zip (Windows) or
 #      tar.gz (Unix).
 #   3. Create a GitHub Release with that tag and attach all three artifacts.
 #
@@ -88,7 +88,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item "${{ matrix.binary_path }}" dist/
-          Copy-Item REQUIREMENTS.md dist/
+          Copy-Item README.md dist/
           Compress-Archive -Path dist/* -DestinationPath "${{ matrix.artifact }}"
 
       - name: Package (Unix)
@@ -96,7 +96,7 @@ jobs:
         run: |
           mkdir -p dist
           cp "${{ matrix.binary_path }}" dist/
-          cp REQUIREMENTS.md dist/
+          cp README.md dist/
           tar -C dist -czf "${{ matrix.artifact }}" .
 
       - uses: actions/upload-artifact@v4

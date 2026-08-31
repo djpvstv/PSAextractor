@@ -490,6 +490,14 @@ std::size_t parse_index(const char* s) {
 
 int main(int argc, char** argv) {
     if (argc < 2) { print_usage(); return 2; }
+
+    // Version flag: works standalone (no PAC file required).
+    if (std::strcmp(argv[1], "--v") == 0 ||
+        std::strcmp(argv[1], "--version") == 0) {
+        std::printf("psax %s\n", PSAX_VERSION.c_str());
+        return 0;
+    }
+
     const char* path = argv[1];
     try {
         auto pac = psax::PacFile::load(path);
