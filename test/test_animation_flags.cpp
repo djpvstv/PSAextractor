@@ -68,25 +68,48 @@ TEST_CASE("format_animation_flags: human-readable string form") {
     CHECK(psax::format_animation_flags(0x00000ABCu) == "low16=0xABC");
 }
 
-// Verify against real FitMario SubActionFlags data that our decoding matches
-// the values PSAC would display.
-TEST_CASE("FitMario known subactions decode to expected animation flags") {
-    auto pac = psax::PacFile::load(sample("FitMario.pac"));
-    auto misc = pac.find_misc_data();
-    REQUIRE(misc);
-    psax::MiscSection ms(pac.entry_data(*misc), misc->length);
-    auto root = psax::load_character_root(ms);
-    auto flags = psax::read_subaction_flags(
-        ms, root.fields[psax::CharacterRoot::SubActionFlags], 0x20u);
-
-    // Values measured from earlier probes:
-    //   Wait1 (0x00) -> 0x06000000 : In=6
-    //   WalkSlow (0x0A) -> 0x06060000 : In=6, Loop, MovesCharacter
-    //   Dash (0x0E) -> 0x00000000 : none
-    //   Turn (0x11) -> 0x00010000 : NoOutTransition
-    REQUIRE(flags.size() >= 0x12u);
-    CHECK(psax::format_animation_flags(flags[0x00].flags) == "In=6");
-    CHECK(psax::format_animation_flags(flags[0x0A].flags) == "In=6, Loop, MovesCharacter");
-    CHECK(psax::format_animation_flags(flags[0x0E].flags) == "-");
-    CHECK(psax::format_animation_flags(flags[0x11].flags) == "NoOutTransition");
+// Verify against real SubActionFlags data across 4 PACs that our decoding
+// matches exactly what PSAC's "Animation Flags" panel displays. All 13
+// values below have been visually confirmed by the user against PSAC.
+TEST_CASE("Known subactions decode to expected animation flags (PSAC verified)") {
+    struct C {
+        const char* pac;
+        std::size_t id;
+        const char* expected;
+        const char* anim;   // for CAPTURE context on failure
+    };
+    const C cases[] = {
+        // FitMario
+        {"FitMario.pac",    0x00, "In=6",                              "Wait1"},
+        {"FitMario.pac",    0x0A, "In=6, Loop, MovesCharacter",        "WalkSlow"},
+        {"FitMario.pac",    0x0E, "-",                                 "Dash"},
+        {"FitMario.pac",    0x11, "NoOutTransition",                   "Turn"},
+        // FitMythra
+        {"FitMythra.pac",   0x00, "In=9",                              "Wait1"},
+        {"FitMythra.pac",   0x0A, "In=6, Loop, MovesCharacter",        "WalkSlow"},
+        {"FitMythra.pac",   0x76, "Unknown3, Unknown5",                "ThrownB"},
+        // FitChief
+        {"FitChief.pac",    0x00, "In=6",                              "Wait1"},
+        {"FitChief.pac",    0x0A, "In=6, Loop, MovesCharacter",        "WalkSlow"},
+        {"FitChief.pac",    0x76, "Unknown3, Unknown5",                "ThrownB"},
+        // FitGreninja
+        {"FitGreninja.pac", 0x00, "In=6",                              "Wait1"},
+        {"FitGreninja.pac", 0x0A, "In=6, Loop, MovesCharacter",        "WalkSlow"},
+        {"FitGreninja.pac", 0x76, "Unknown3, Unknown5",                "ThrownB"},
+        {"FitGreninja.pac", 0x1D6, "In=21",                            "SpecialHiEnd"},
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.pac);
+        CAPTURE(c.id);
+        CAPTURE(c.anim);
+        auto pac = psax::PacFile::load(sample(c.pac));
+        auto misc = pac.find_misc_data();
+        REQUIRE(misc);
+        psax::MiscSection ms(pac.entry_data(*misc), misc->length);
+        auto root = psax::load_character_root(ms);
+        auto flags = psax::read_subaction_flags(
+            ms, root.fields[psax::CharacterRoot::SubActionFlags], c.id + 1);
+        REQUIRE(flags.size() > c.id);
+        CHECK(psax::format_animation_flags(flags[c.id].flags) == c.expected);
+    }
 }
