@@ -4,4 +4,6 @@ test/pacs/
 .*/
 CMakeSettings.json
 CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
 *.user
