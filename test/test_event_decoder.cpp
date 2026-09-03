@@ -189,6 +189,41 @@ TEST_CASE("Requirement arg decodes via PSAC's Requirements.txt with negation bit
     CHECK(psax::Arg{psax::ArgType::Requirement, 0x00001234u}.to_pretty_string() == "req(0x1234)"); // way out of table
 }
 
+// Regression: TerminateGraphicEffect (0x11150300) arg names came from
+// BrawlCrate as (Graphic, Boolean, Boolean) — a degraded set. PSAC's
+// Parameters.txt has the better names (Graphic ID, Instant, Boolean).
+// This test locks in the PSAC-preferred names against real bytes from
+// FitChief.pac's subroutine at stored offset 0x3087C. (User originally
+// referenced "event 61" for this location — the actual TerminateGraphicEffect
+// event is index 52; event 61 in that subroutine is EndIf().)
+TEST_CASE("FitChief subroutine 0x3087C: TerminateGraphicEffect uses PSAC arg names") {
+    auto pac = psax::PacFile::load(sample("FitChief.pac"));
+    auto misc = pac.find_misc_data();
+    REQUIRE(misc);
+    psax::EventDecoder dec(pac.entry_data(*misc), misc->length);
+
+    const auto events = dec.decode(psax::resolve_misc_ptr(0x3087Cu));
+    REQUIRE(events.size() > 52u);
+
+    const auto& e = events[52];
+    CHECK(e.cmd_id == 0x11150300u);   // TerminateGraphicEffect
+
+    // Structural: 3 args of the expected types + values from the raw bytes.
+    REQUIRE(e.args.size() == 3u);
+    CHECK(e.args[0].type == psax::ArgType::Value);
+    CHECK(e.args[0].raw_value == 0x01FB0015u);
+    CHECK(e.args[1].type == psax::ArgType::Boolean);
+    CHECK(e.args[1].raw_value == 0x00000001u);   // true
+    CHECK(e.args[2].type == psax::ArgType::Boolean);
+    CHECK(e.args[2].raw_value == 0x00000001u);   // true
+
+    // Pretty-print: PSAC names win — "Graphic ID" and "Instant", not
+    // BrawlCrate's degraded "Graphic" and "Boolean".
+    const std::string got = e.to_pretty_string();
+    CHECK(got ==
+        "TerminateGraphicEffect(Graphic ID=0x1FB0015, Instant=true, Boolean=true)");
+}
+
 TEST_CASE("BitVariableSet / Clear render with = true / = false suffix") {
     psax::Event set;
     set.cmd_id = 0x120A0100u;
