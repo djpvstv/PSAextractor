@@ -1600,6 +1600,330 @@ constexpr NameEntry kNames[] = {
         "Unknown"
     },
 
+    // ---- 64 entries mined from CodecSMW/BrawlCrate/CustomLists/MovesetData/Events.txt
+    // (fork master 2026-03; parent soopercool101/BrawlCrate; license BSD-3)
+    // Thanks Duke
+    {
+        0x03000000u,
+        "ResetLayerType2",
+        "Undefined."
+    },
+    {
+        0x03000100u,
+        "ResetLayerType",
+        "Undefined"
+    },
+    {
+        0x03050100u,
+        "SetTransNBoneID",
+        "Changes the TransN Bone ID reference."
+    },
+    {
+        0x030A0400u,
+        "StoreGlobalBonePosition",
+        "Stores the position of the given bone into 3 variables, one for each axis."
+    },
+    {
+        0x03100400u,
+        "GetNodeGlobalRotationCustom",
+        "Functions similarly to Store Global Bone Position, except for rotation instead of position. Requires \"PSA Command 03100400: Get Node Global Rotation [MarioDox]\" to be in your codeset."
+    },
+    {
+        0x04000300u,
+        "ChangeSubActionPassFramePassFrameSpeed",
+        "Change the current sub action. Can specify whether or not to pass the current frame or start the animation over. Also can specify the frame speed if you give it a scalar/variable, it reads it as the frame speed"
+    },
+    {
+        0x04070200u,
+        "MultiplyFrameSpeedModifier",
+        "Multiplies the current Frame Speed. Example: Setting to 2 will multiply the current Frame Speed by 2."
+    },
+    {
+        0x040C0200u,
+        "ChangeSubActionReversePlayPassFrame",
+        "Change the current sub action (plays in reverse). Can specify whether or not to pass the current frame or start the animation over."
+    },
+    {
+        0x040C0300u,
+        "ChangeSubActionReversePlayPassFramePassFrameSpeed",
+        "Change the current sub action (plays in reverse). Can specify whether or not to pass the current frame or start the animation over. Also can specify the frame speed if you give it a scalar/variable, it reads it as the frame speed"
+    },
+    {
+        0x04180100u,
+        "SubActionAnimationOffset",
+        "Offsets a Change Sub Action command by what's specified in this command."
+    },
+    {
+        0x05070300u,
+        "Posture07",
+        "Unknown."
+    },
+    {
+        0x050D0100u,
+        "Posture0D",
+        "Unknown."
+    },
+    {
+        0x061C0300u,
+        "SetDefensiveCollisionFacingRestriction",
+        "Ignores attacks that face the same direction of the user."
+    },
+    {
+        0x06210100u,
+        "GrabToggle",
+        "When set to True, the user can be grabbed within the current action. When set to False, the user cannot be grabbed within the current action. Resets to default upon action change."
+    },
+    {
+        0x08050400u,
+        "ModifyECBShape",
+        "Modifies the collision points of a character's ECB."
+    },
+    {
+        0x0A060100u,
+        "StopSoundEffectTransient",
+        "Stops the specified sound effect immediately."
+    },
+    {
+        0x0C0A0100u,
+        "CharacterSpecific0A",
+        "Unknown."
+    },
+    {
+        0x0C130000u,
+        "CharacterSpecific13",
+        "Undefined."
+    },
+    {
+        0x0C1B0100u,
+        "CharacterSpecific1B",
+        "Unknown."
+    },
+    {
+        0x0C1C0300u,
+        "CharacterSpecific1CBoolean",
+        "Unknown."
+    },
+    {
+        0x0C200200u,
+        "CharacterSpecific20",
+        "Unknown."
+    },
+    {
+        0x0C240100u,
+        "CharacterSpecific24",
+        "Unknown."
+    },
+    {
+        0x0C260100u,
+        "CharacterSpecific26",
+        "Unknown."
+    },
+    {
+        0x0C290000u,
+        "CharacterSpecific29",
+        "Undefined."
+    },
+    {
+        0x0D050200u,
+        "IndependentSubroutineCustom",
+        "Makes and starts a new independent subroutine. (Requires the Independent Subroutines code by Mawootad.)"
+    },
+    {
+        0x0D060100u,
+        "TerminateIndependentSubroutineCustom",
+        "Stops a running independent subroutine. (Requires the relevant code by Mawootad.)"
+    },
+    {
+        0x0D070200u,
+        "SetThreadTypeCustom",
+        "Sets a new thread type. (Requires the Independent Subroutines code by Mawootad.)"
+    },
+    {
+        0x10040100u,
+        "SetArticleAction",
+        "Sets the specified article to execute the specified action immediately. Only works on anchored articles (Cape, FLUDD, not fireball, water)."
+    },
+    {
+        0x11060000u,
+        "PauseFighterGFX",
+        "Pauses the animation of any currently active GFX spawned from your fighter at the point this command is activated. Any GFX spawned afterward will still play normally."
+    },
+    {
+        0x11070000u,
+        "ResumeFighterGFX",
+        "Resumes any GFX which were previously paused by the Pause Fighter GFX command."
+    },
+    {
+        0x111D0100u,
+        "EffectID",
+        "Undefined."
+    },
+    {
+        0x11210100u,
+        "SetGFXAnimationIndexCustom",
+        "Sets the animation ID for the chosen GFX, clears after GFX spawn. This command must be placed before using your desired Graphic Effect command. Requires Eon's \"Set Anim Index\" code."
+    },
+    {
+        0x12150300u,
+        "ReadFromPointerPathToVariableCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x12160400u,
+        "ReadFromPointerPathWithMaskToVariableCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x12170300u,
+        "WriteIntegerToPointedAddressCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x12180300u,
+        "WriteFloatToPointedAddressCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x12190400u,
+        "WriteBitUsingMaskToPointedAddressCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121A0200u,
+        "ReadFromPointerPathUsingMainIndexToVariableCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121A0F00u,
+        "ReadFromPointerPathUsingMainIndexToVariableCustomD00",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121B0300u,
+        "ReadFromPointerPathUsingMainIndexWithMaskToVariableCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121C0200u,
+        "WriteIntegerToPointedAddressUsingMainIndexCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121D0200u,
+        "WriteFloatToPointedAddressUsingMainIndexCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x121E0300u,
+        "WriteBitUsingMaskToPointedAddressUsingMainIndexCustom",
+        "Requires Pointer Wizardry code by Eon"
+    },
+    {
+        0x12200200u,
+        "AttributeRangeSetCustom",
+        "Requires the On the Fly Attribute Modification code by Mawootad."
+    },
+    {
+        0x12210200u,
+        "AttributeRangeAddCustom",
+        "Requires the On the Fly Attribute Modification code by Mawootad."
+    },
+    {
+        0x12220200u,
+        "AttributeRangeSubtractCustom",
+        "Requires the On the Fly Attribute Modification code by Mawootad."
+    },
+    {
+        0x12230200u,
+        "AttributeRangeMultiplyCustom",
+        "Requires the On the Fly Attribute Modification code by Mawootad."
+    },
+    {
+        0x12240200u,
+        "AttributeRangeDivideCustom",
+        "Requires the On the Fly Attribute Modification code by Mawootad."
+    },
+    {
+        0x12500200u,
+        "SinCustom",
+        "Executes a sin equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12510200u,
+        "CosCustom",
+        "Executes a cos equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12520200u,
+        "AsinCustom",
+        "Executes an asin equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12530200u,
+        "AcosCustom",
+        "Executes an acos equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12540300u,
+        "ATan2Custom",
+        "Executes an aTan2 equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12550200u,
+        "SqrtCustom",
+        "Executes a sqrt equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12560300u,
+        "PowerCustom",
+        "Executes a power equation, storing the result into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x12570100u,
+        "GetPiCustom",
+        "Retrieves and stores pi into the variable of your choice. Requires Maths code by Eon"
+    },
+    {
+        0x14070900u,
+        "AestheticWindEffect2",
+        "Moves nearby movable model parts (capes, hair, etc) with a wind specified by the parameters."
+    },
+    {
+        0x1A090000u,
+        "Camera09",
+        "Undefined."
+    },
+    {
+        0x1C000200u,
+        "SetHitlag",
+        "Sets the hitlag on the current move."
+    },
+    {
+        0x1F080200u,
+        "GenerateItemVariantCustom",
+        "Generate an item while specifying its variant. Requires the \"PSA Command 1F080200 (spawn item variant)\" code by Sammi Husky."
+    },
+    {
+        0x1F110100u,
+        "Item11",
+        "Undefined."
+    },
+    {
+        0x1F120600u,
+        "GenerateAndThrowItemCustom",
+        "Generates and immediately throws a given item. Requires the \"Custom GenerateAndThrowItem PSA command\" code by Sammi Husky."
+    },
+    {
+        0x20000200u,
+        "Turn00",
+        "unknown."
+    },
+    {
+        0xC0DE0100u,
+        "ChangeHitboxSoundEffectCustom",
+        "Change the sound effect of the next hitbox. Requires the Hitbox Sound Effect Change System code by JOJI."
+    },
+
 };
 } // namespace
 
