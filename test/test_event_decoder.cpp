@@ -76,11 +76,14 @@ TEST_CASE("SpecialOffensiveCollision (0x06150F00) decodes 15 args and names corr
     REQUIRE(e.args.size() == 15u);
 
     // Full expected pretty form (Scalars as decimal, Values as 0x…).
+    // Arg names come from BrawlCrate's Parameters.txt via command_arg_name().
     const std::string expected =
         "SpecialOffensiveCollision("
-        "0x460000, 0x3, 0x5A, 0x500064, 0x0, "
-        "5, 0, 14, 0, 0, "
-        "3, 0, 0x32831C82, 0x0, 0x4FFFD3)";
+        "Bone ID/Hitbox ID=0x460000, Damage=0x3, Trajectory=0x5A, "
+        "Weight Knockback/Knockback Growth=0x500064, Shield Damage/Base Knockback=0x0, "
+        "Size=5, X Offset=0, Y Offset=14, Z Offset=0, Tripping Rate=0, "
+        "Hitlag Multiplier=3, Directional Influence Multiplier=0, "
+        "Flags=0x32831C82, Rehit Rate=0x0, Special Flags=0x4FFFD3)";
     CHECK(e.to_pretty_string() == expected);
 
     // Raw form round-trip.
@@ -99,10 +102,10 @@ TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {
     auto events = dec.decode(psax::resolve_misc_ptr(0x108D0u));
     REQUIRE(events.size() == 5u);
 
-    CHECK(events[0].to_pretty_string() == "AsynchronousTimer(10)");
+    CHECK(events[0].to_pretty_string() == "AsynchronousTimer(Frames=10)");
     CHECK(events[1].to_pretty_string() == "BitVariableSet(RA-Bit[16] = true)");
     CHECK(events[2].to_pretty_string() == "BitVariableClear(RA-Bit[18] = false)");
-    CHECK(events[3].to_pretty_string() == "AsynchronousTimer(13)");
+    CHECK(events[3].to_pretty_string() == "AsynchronousTimer(Frames=13)");
     CHECK(events[4].to_pretty_string() == "AllowInterrupt()");
 }
 
@@ -172,11 +175,11 @@ TEST_CASE("Requirement arg decodes via PSAC's Requirements.txt with negation bit
     pos.cmd_id = 0x02010200u;
     pos.args.push_back({psax::ArgType::Value,       0x19u});
     pos.args.push_back({psax::ArgType::Requirement, 0x00000003u});
-    CHECK(pos.to_pretty_string() == "ChangeAction(0x19, OnGround)");
+    CHECK(pos.to_pretty_string() == "ChangeAction(Action=0x19, Requirement=OnGround)");
 
     psax::Event neg = pos;
     neg.args[1].raw_value = 0x80000003u;
-    CHECK(neg.to_pretty_string() == "ChangeAction(0x19, !OnGround)");
+    CHECK(neg.to_pretty_string() == "ChangeAction(Action=0x19, Requirement=!OnGround)");
 
     // Known and unknown IDs isolated at Arg level.
     CHECK(psax::Arg{psax::ArgType::Requirement, 0x00000000u}.to_pretty_string() == "CharacterExists");

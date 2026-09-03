@@ -1,5 +1,6 @@
 #include "psa/event.hpp"
 
+#include "psa/argument_schema.hpp"
 #include "psa/command_table.hpp"
 
 #include <cstdio>
@@ -62,10 +63,18 @@ std::string Event::to_pretty_string() const {
     }
     out += '(';
     if (const char* fmt = command_format(cmd_id)) {
+        // Explicit per-command format string wins (handles reordering / equals-signs).
         out += apply_format(fmt, args);
     } else {
+        // Default: comma-separated args. If we have named-arg metadata for this
+        // command (from BrawlCrate's Parameters.txt), render as "name=value".
         for (std::size_t i = 0; i < args.size(); ++i) {
             if (i > 0) out += ", ";
+            if (const char* aname = command_arg_name(cmd_id,
+                                                    static_cast<uint32_t>(i))) {
+                out += aname;
+                out += '=';
+            }
             out += args[i].to_pretty_string();
         }
     }
