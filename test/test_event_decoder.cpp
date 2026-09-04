@@ -78,7 +78,7 @@ TEST_CASE("SpecialOffensiveCollision (0x06150F00) decodes 15 args and names corr
     // Full expected pretty form (Scalars as decimal, Values as 0x…).
     // Arg names come from BrawlCrate's Parameters.txt via command_arg_name().
     const std::string expected =
-        "SpecialOffensiveCollision("
+        "collision.specialOffensiveCollision("
         "Bone ID/Hitbox ID=0x460000, Damage=0x3, Trajectory=0x5A, "
         "Weight Knockback/Knockback Growth=0x500064, Shield Damage/Base Knockback=0x0, "
         "Size=5, X Offset=0, Y Offset=14, Z Offset=0, Tripping Rate=0, "
@@ -102,11 +102,11 @@ TEST_CASE("RunBrake pretty-prints to DSL form matching PSAC semantics") {
     auto events = dec.decode(psax::resolve_misc_ptr(0x108D0u));
     REQUIRE(events.size() == 5u);
 
-    CHECK(events[0].to_pretty_string() == "AsynchronousTimer(Frames=10)");
-    CHECK(events[1].to_pretty_string() == "BitVariableSet(RA-Bit[16] = true)");
-    CHECK(events[2].to_pretty_string() == "BitVariableClear(RA-Bit[18] = false)");
-    CHECK(events[3].to_pretty_string() == "AsynchronousTimer(Frames=13)");
-    CHECK(events[4].to_pretty_string() == "AllowInterrupt()");
+    CHECK(events[0].to_pretty_string() == "asynchronousTimer(Frames=10)");
+    CHECK(events[1].to_pretty_string() == "work.bitSet(RA-Bit[16] = true)");
+    CHECK(events[2].to_pretty_string() == "work.bitClear(RA-Bit[18] = false)");
+    CHECK(events[3].to_pretty_string() == "asynchronousTimer(Frames=13)");
+    CHECK(events[4].to_pretty_string() == "cancel.allowInterrupt()");
 }
 
 TEST_CASE("Variable decoder unpacks memory-class + data-type + index") {
@@ -142,20 +142,20 @@ TEST_CASE("BasicVariableSet renders with variable = value order (per PSAC)") {
     struct C { uint32_t arg0_type; uint32_t arg0_val; uint32_t arg1_type; uint32_t arg1_val; const char* expected; };
     const C cases[] = {
         // "Basic Variable Set: RA-Basic[8] = 0x5459"
-        {0, 0x5459u, 5, 0x20000008u, "BasicVariableSet(RA-Basic[8] = 0x5459)"},
-        {0, 0x5459u, 5, 0x10000009u, "BasicVariableSet(LA-Basic[9] = 0x5459)"},
-        {0, 0x5459u, 5, 0x00004E23u, "BasicVariableSet(IC-Basic[20003] = 0x5459)"},
-        {0, 0x5459u, 5, 0x21000008u, "BasicVariableSet(RA-Float[8] = 0x5459)"},
-        {0, 0x5459u, 5, 0x22000008u, "BasicVariableSet(RA-Bit[8] = 0x5459)"},
+        {0, 0x5459u, 5, 0x20000008u, "work.basicSet(RA-Basic[8] = 0x5459)"},
+        {0, 0x5459u, 5, 0x10000009u, "work.basicSet(LA-Basic[9] = 0x5459)"},
+        {0, 0x5459u, 5, 0x00004E23u, "work.basicSet(IC-Basic[20003] = 0x5459)"},
+        {0, 0x5459u, 5, 0x21000008u, "work.basicSet(RA-Float[8] = 0x5459)"},
+        {0, 0x5459u, 5, 0x22000008u, "work.basicSet(RA-Bit[8] = 0x5459)"},
         // 188460 / 60000 = 3.141 exactly (Scalar arg stays decimal)
-        {1, 0x2E02Cu, 0, 0x3u, "BasicVariableSet(0x3 = 3.141)"},
+        {1, 0x2E02Cu, 0, 0x3u, "work.basicSet(0x3 = 3.141)"},
         // Pointer arg: also hex-formatted like a Value.
-        {2, 0x2E02Cu, 0, 0x3u, "BasicVariableSet(0x3 = 0x2E02C)"},
-        {3, 0x1u,     0, 0x3u, "BasicVariableSet(0x3 = true)"},
+        {2, 0x2E02Cu, 0, 0x3u, "work.basicSet(0x3 = 0x2E02C)"},
+        {3, 0x1u,     0, 0x3u, "work.basicSet(0x3 = true)"},
         // Requirement ID 0 = "Character Exists?" per PSAC's Requirements.txt.
-        {6, 0x0u,     0, 0x3u, "BasicVariableSet(0x3 = CharacterExists)"},
+        {6, 0x0u,     0, 0x3u, "work.basicSet(0x3 = CharacterExists)"},
         // The specific example the user flagged: value 0x40AF5EDD, RA-Basic[15].
-        {0, 0x40AF5EDDu, 5, 0x2000000Fu, "BasicVariableSet(RA-Basic[15] = 0x40AF5EDD)"},
+        {0, 0x40AF5EDDu, 5, 0x2000000Fu, "work.basicSet(RA-Basic[15] = 0x40AF5EDD)"},
     };
     for (const auto& c : cases) {
         CAPTURE(c.expected);
@@ -175,11 +175,11 @@ TEST_CASE("Requirement arg decodes via PSAC's Requirements.txt with negation bit
     pos.cmd_id = 0x02010200u;
     pos.args.push_back({psax::ArgType::Value,       0x19u});
     pos.args.push_back({psax::ArgType::Requirement, 0x00000003u});
-    CHECK(pos.to_pretty_string() == "ChangeAction(Action=0x19, Requirement=OnGround)");
+    CHECK(pos.to_pretty_string() == "status.changeAction(Action=0x19, Requirement=OnGround)");
 
     psax::Event neg = pos;
     neg.args[1].raw_value = 0x80000003u;
-    CHECK(neg.to_pretty_string() == "ChangeAction(Action=0x19, Requirement=!OnGround)");
+    CHECK(neg.to_pretty_string() == "status.changeAction(Action=0x19, Requirement=!OnGround)");
 
     // Known and unknown IDs isolated at Arg level.
     CHECK(psax::Arg{psax::ArgType::Requirement, 0x00000000u}.to_pretty_string() == "CharacterExists");
@@ -219,19 +219,19 @@ TEST_CASE("FitChief subroutine 0x3087C: TerminateGraphicEffect uses PSAC arg nam
     // BrawlCrate's degraded "Graphic" and "Boolean".
     const std::string got = e.to_pretty_string();
     CHECK(got ==
-        "TerminateGraphicEffect(Graphic ID=0x1FB0015, Instant=true, Boolean=true)");
+        "effect.terminate(Graphic ID=0x1FB0015, Instant=true, Boolean=true)");
 }
 
 TEST_CASE("BitVariableSet / Clear render with = true / = false suffix") {
     psax::Event set;
     set.cmd_id = 0x120A0100u;
     set.args.push_back({psax::ArgType::Variable, 0x22000010u});
-    CHECK(set.to_pretty_string() == "BitVariableSet(RA-Bit[16] = true)");
+    CHECK(set.to_pretty_string() == "work.bitSet(RA-Bit[16] = true)");
 
     psax::Event clr;
     clr.cmd_id = 0x120B0100u;
     clr.args.push_back({psax::ArgType::Variable, 0x22000012u});
-    CHECK(clr.to_pretty_string() == "BitVariableClear(RA-Bit[18] = false)");
+    CHECK(clr.to_pretty_string() == "work.bitClear(RA-Bit[18] = false)");
 }
 
 TEST_CASE("Scalar decoder divides raw by 60000") {

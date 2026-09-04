@@ -54,7 +54,12 @@ void print_usage() {
         "                                                 00_builtin.json unless --clean is passed.\n"
         "                                                 no PAC required\n"
         "  psax where-overrides                           print every override dir that would be applied,\n"
-        "                                                 in load order. no PAC required\n",
+        "                                                 in load order. no PAC required\n"
+        "\n"
+        "global flags (position-independent, can appear anywhere):\n"
+        "  --legacy                                       render events with the historical PSAC name\n"
+        "                                                 (e.g. 'TerminateGraphicEffect(...)') instead of\n"
+        "                                                 the default dotted form ('effect.terminate(...)')\n",
     PSAX_VERSION.c_str());
 }
 
@@ -568,6 +573,21 @@ void auto_load_overrides() {
 
 int main(int argc, char** argv) {
     if (argc < 2) { print_usage(); return 2; }
+
+    // Global flag filter: pull out --legacy anywhere in argv so per-subcommand
+    // parsers (which compare argv[N] positionally) don't have to know about it.
+    // Filtered argv[] is contiguous with no gaps.
+    {
+        int out = 0;
+        for (int i = 0; i < argc; ++i) {
+            if (std::strcmp(argv[i], "--legacy") == 0) {
+                psax::set_legacy_display_mode(true);
+                continue;
+            }
+            argv[out++] = argv[i];
+        }
+        argc = out;
+    }
 
     // Version flag: works standalone (no PAC file required).
     if (std::strcmp(argv[1], "--v") == 0 ||

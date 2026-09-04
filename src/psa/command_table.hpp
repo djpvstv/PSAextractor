@@ -15,9 +15,36 @@ inline uint32_t arg_count_of(uint32_t cmd_id) {
     return (cmd_id >> 8) & 0xFFu;
 }
 
-// Human-readable name for a command ID, or nullptr if unknown.
-// Arg counts are derived from cmd_id, not stored here.
+// Human-readable name for a command ID. Returns the DOTTED-syntax method
+// name by default (e.g. "terminate" for 0x11150300 TerminateGraphicEffect),
+// or the historical PSAC name if --legacy is active. nullptr if unknown.
+// Overridable via the runtime overrides file (overrides target the method
+// name, not the legacy form).
 const char* command_name(uint32_t cmd_id);
+
+// Historical PSAC display name for a command, ignoring the --legacy toggle.
+// Used by --legacy mode itself and by the dumper. nullptr if unknown.
+const char* command_legacy_name(uint32_t cmd_id);
+
+// Dotted-syntax method name for a command (the part after "module.").
+// nullptr if unknown. Consults overrides.
+const char* command_method_name(uint32_t cmd_id);
+
+// Module shorthand for the top byte of the cmd_id (e.g. "work" for 0x12).
+// nullptr when the top byte has no assigned module — currently 0x00 (flow
+// control) and 0x01 (loopRest) render as bare "method(args)" per your
+// preference for uncluttered flow display.
+const char* command_module_shorthand(std::uint32_t cmd_id);
+
+// Long game-symbol module name for the top byte (e.g. "soWorkManageModuleImpl"
+// for 0x12). Kept for future tooltip/verbose output. nullptr if unknown.
+const char* command_module_long_name(std::uint32_t cmd_id);
+
+// Global toggle: on -> command_name returns legacy_name, Event::to_pretty_string
+// uses bare "LegacyName(...)"; off -> "module.method(...)" dotted form.
+// Set once from main() after arg parsing.
+void set_legacy_display_mode(bool on);
+bool is_legacy_display_mode();
 
 // Longer PSAC-style description, or nullptr if unknown.
 const char* command_description(uint32_t cmd_id);

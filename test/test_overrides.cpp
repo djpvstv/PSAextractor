@@ -194,7 +194,11 @@ TEST_CASE("overrides apply: command_name/description consult overrides first") {
     OverridesGuard g;
 
     // Sanity-check the built-in fallback before we install any override.
+    // command_name() returns the dotted-syntax METHOD name by default now;
+    // the legacy form is available via command_legacy_name().
     CHECK(std::string(psax::command_name(0xC0DE0100u))
+          == "changeHitboxSoundEffectCustom");
+    CHECK(std::string(psax::command_legacy_name(0xC0DE0100u))
           == "ChangeHitboxSoundEffectCustom");
 
     psax::OverrideMap m;
@@ -208,7 +212,7 @@ TEST_CASE("overrides apply: command_name/description consult overrides first") {
     CHECK(std::string(psax::command_description(0xC0DE0100u)) == "my custom description");
 
     // Unrelated commands still hit the built-in table.
-    CHECK(std::string(psax::command_name(0x00020100u)) == "AsynchronousTimer");
+    CHECK(std::string(psax::command_name(0x00020100u)) == "asynchronousTimer");
 }
 
 TEST_CASE("overrides apply: partial overrides fall through per-field") {
@@ -309,10 +313,13 @@ TEST_CASE("overrides dump_builtin_command_table: covers union of both tables") {
     }
 
     // Names + arg names we know should be present verbatim in the dump.
-    CHECK(dump.find("\"TerminateGraphicEffect\"") != std::string::npos);
-    CHECK(dump.find("\"Instant\"")                != std::string::npos);
-    CHECK(dump.find("\"AsynchronousTimer\"")      != std::string::npos);
-    CHECK(dump.find("\"Frames\"")                 != std::string::npos);
+    // The dump uses the dotted-syntax method_name in the "name" field
+    // (legacy_name is not currently emitted; command_legacy_name() is the
+    // separate accessor for --legacy mode).
+    CHECK(dump.find("\"terminate\"")         != std::string::npos);
+    CHECK(dump.find("\"Instant\"")           != std::string::npos);
+    CHECK(dump.find("\"asynchronousTimer\"") != std::string::npos);
+    CHECK(dump.find("\"Frames\"")            != std::string::npos);
 }
 
 TEST_CASE("overrides dump_builtin_command_table: round-trips through the "

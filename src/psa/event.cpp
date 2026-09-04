@@ -52,14 +52,31 @@ std::string apply_format(const char* fmt, const std::vector<Arg>& args) {
 } // namespace
 
 std::string Event::to_pretty_string() const {
+    // Legacy mode: bare "LegacyName(args)" — matches historical psax output.
+    // Dotted mode: "module.method(args)", or "method(args)" when the top
+    // byte has no assigned module (0x00 flow, 0x01 loopRest). Unknown
+    // cmd_ids fall back to "unknown_XXXXXXXX(args)" so grep-ability holds.
     const char* name = command_name(cmd_id);
     char head[32];
     std::string out;
-    if (name) {
-        out = name;
+    if (is_legacy_display_mode()) {
+        if (name) {
+            out = name;
+        } else {
+            std::snprintf(head, sizeof(head), "Unknown_%08X", cmd_id);
+            out = head;
+        }
     } else {
-        std::snprintf(head, sizeof(head), "Unknown_%08X", cmd_id);
-        out = head;
+        if (const char* mod = command_module_shorthand(cmd_id)) {
+            out = mod;
+            out += '.';
+        }
+        if (name) {
+            out += name;
+        } else {
+            std::snprintf(head, sizeof(head), "unknown_%08X", cmd_id);
+            out += head;
+        }
     }
     out += '(';
     if (const char* fmt = command_format(cmd_id)) {
