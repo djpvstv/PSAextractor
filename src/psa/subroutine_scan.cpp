@@ -19,7 +19,7 @@ namespace {
 // Command IDs whose args carry a pointer to another event list.
 // SubRoutine / Goto: first arg is the target.
 // ConcurrentInfiniteLoop: has 2 args; the target is the first Pointer-typed
-// one we find (position unverified — treated defensively).
+// one we find (position unverified - treated defensively).
 constexpr uint32_t kCmdSubRoutine             = 0x00070100u;
 constexpr uint32_t kCmdGoto                   = 0x00090100u;
 constexpr uint32_t kCmdConcurrentInfiniteLoop = 0x0D000200u;
@@ -107,7 +107,7 @@ std::vector<DiscoveredSubroutine> collect_subroutines(const MiscSection& ms) {
     // First, collect every subaction event-list pointer across all 4 tabs.
     // A subroutine target that happens to equal one of these is really just a
     // cross-reference into an existing subaction (via Goto or Concurrent-
-    // InfiniteLoop, most often) — NOT a new subroutine we should discover.
+    // InfiniteLoop, most often) - NOT a new subroutine we should discover.
     std::unordered_set<uint32_t> subaction_ptrs;
     for (const auto& tab : tabs) {
         const auto table = read_subaction_table(ms, root.fields[tab.field], count);

@@ -13,7 +13,7 @@ namespace psax {
 class MiscSection;
 
 // One result group from a sound-effect audit: filtered events for one
-// location. Subactions and subroutines share this type — check `kind`.
+// location. Subactions and subroutines share this type - check `kind`.
 struct SfxAuditEntry {
     enum LocationKind { InSubAction, InSubroutine };
     LocationKind kind = InSubAction;
@@ -43,7 +43,7 @@ struct SfxAuditOptions {
 //   OffensiveCollision (0x06000D00) / SpecialOffensiveCollision (0x06150F00) /
 //   BasicVariableSet (0x12000200) targeting RA-Basic[8..10].
 // This is CONTEXT-FREE; it doesn't apply the "collisions only count when
-// paired with an RA-Basic write" rule — that's filter_sfx_events().
+// paired with an RA-Basic write" rule - that's filter_sfx_events().
 bool event_is_sfx_candidate(const Event& e);
 
 // Apply the audit's per-subaction filter to one event list. Rules:
@@ -73,7 +73,7 @@ struct SfxAuditReport {
 
 // Walk all 4 tabs of every subaction in `ms` and every reachable subroutine.
 // Any location whose event stream decode throws is captured in `failures`
-// and skipped rather than aborting the audit — special/article files often
+// and skipped rather than aborting the audit - special/article files often
 // have layouts where not every SubAction<X> slot is a valid event list.
 // Subactions are added first (subaction-major); subroutines follow, sorted
 // by resolved MISC offset.

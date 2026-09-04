@@ -4,6 +4,7 @@
 #include "psa/event_decoder.hpp"
 #include "psa/misc_section.hpp"
 #include "psa/animation_flags.hpp"
+#include "psa/overrides.hpp"
 #include "psa/sfx_audit.hpp"
 #include "psa/subaction_flags.hpp"
 #include "psa/subaction_table.hpp"
@@ -43,7 +44,13 @@ void print_usage() {
         "                                                 subroutine\n"
         "  psax <pac> --find-var <descriptor>             same as --audit-var, filtered to one variable.\n"
         "                                                 descriptor: DSL form like 'RA-Basic[8]' or\n"
-        "                                                 raw hex like '0x20000008'\n",
+        "                                                 raw hex like '0x20000008'\n"
+        "  psax init-overrides                            create an overrides/ dir + README + example.json\n"
+        "                                                 next to the current dir; falls back to the\n"
+        "                                                 per-user config dir if the current dir isn't\n"
+        "                                                 writable. no PAC required\n"
+        "  psax where-overrides                           print every override dir that would be applied,\n"
+        "                                                 in load order. no PAC required\n",
     PSAX_VERSION.c_str());
 }
 
@@ -81,7 +88,7 @@ bool parse_audit_sfx_options(int argc, char** argv, int start,
     return true;
 }
 
-// Shared printer for VarAuditEntry — mirrors the SFX audit output style.
+// Shared printer for VarAuditEntry - mirrors the SFX audit output style.
 void print_var_entry(const psax::VarAuditEntry& r) {
     if (r.kind == psax::VarAuditEntry::InSubAction) {
         const char* name = r.anim_name.empty() ? "<unnamed>" : r.anim_name.c_str();
@@ -486,6 +493,55 @@ std::size_t parse_index(const char* s) {
     return static_cast<std::size_t>(std::strtoul(s, nullptr, base));
 }
 
+// Bare subcommands don't take a PAC and are inspection/setup commands, so
+// they intentionally skip the auto-load of override files. A malformed
+// override in the user's dirs otherwise couldn't be diagnosed without
+// running the tool successfully.
+int handle_init_overrides() {
+    const auto r = psax::init_overrides();
+    if (r.created) {
+        std::printf("Created overrides directory: %s\n", r.path.string().c_str());
+        std::printf("  wrote README.md and example.json\n");
+    } else {
+        std::printf("Overrides directory already exists: %s\n",
+                    r.path.string().c_str());
+        std::printf("  (nothing written; drop *.json files here)\n");
+    }
+    if (r.used_fallback) {
+        std::printf("  (project dir wasn't writable; used per-user fallback)\n");
+    }
+    return 0;
+}
+
+int handle_where_overrides() {
+    const auto paths = psax::active_overrides_paths();
+    if (paths.empty()) {
+        std::printf(
+            "No override directories exist yet.\n"
+            "  project (checked): %s\n"
+            "  user    (checked): %s\n"
+            "Run 'psax init-overrides' to create one.\n",
+            psax::project_overrides_dir().string().c_str(),
+            psax::user_overrides_dir().string().c_str());
+        return 0;
+    }
+    std::printf("Override directories that will be applied (in load order; "
+                "later wins):\n");
+    for (const auto& p : paths) {
+        std::printf("  %s\n", p.string().c_str());
+    }
+    return 0;
+}
+
+// Silent on success; a malformed file throws with a "<path>:<line>:<col>:
+// <msg>" message that the caller's try/catch surfaces as a hard error.
+void auto_load_overrides() {
+    auto acc = psax::load_override_dir(psax::user_overrides_dir());
+    acc = psax::merge_overrides(std::move(acc),
+                                psax::load_override_dir(psax::project_overrides_dir()));
+    psax::set_active_overrides(std::move(acc));
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -498,9 +554,17 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    const char* path = argv[1];
     try {
+        // Bare subcommands (no PAC required) - inspection/setup only.
+        if (std::strcmp(argv[1], "init-overrides") == 0)  return handle_init_overrides();
+        if (std::strcmp(argv[1], "where-overrides") == 0) return handle_where_overrides();
+
+        const char* path = argv[1];
         auto pac = psax::PacFile::load(path);
+        // Silently apply any user-supplied overrides. Malformed files throw
+        // before we've printed any per-run output, so a broken override
+        // gives a clean single "error: ..." message with no half-run noise.
+        auto_load_overrides();
         std::printf("file: %s (%zu bytes)\n\n", path, pac.size());
 
         if (argc == 2) {

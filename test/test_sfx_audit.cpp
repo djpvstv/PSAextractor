@@ -44,7 +44,7 @@ TEST_CASE("event_is_sfx_candidate: matches the 5 candidate patterns") {
     CHECK(psax::event_is_sfx_candidate(ev(0x0A030100u)));      // SoundEffectTransient
     CHECK(psax::event_is_sfx_candidate(ev(0x06000D00u)));      // OffensiveCollision        (13 args)
     CHECK(psax::event_is_sfx_candidate(ev(0x06150F00u)));      // SpecialOffensiveCollision (15 args)
-    CHECK_FALSE(psax::event_is_sfx_candidate(ev(0x06010200u))); // ChangeHitboxDamage — not a creator
+    CHECK_FALSE(psax::event_is_sfx_candidate(ev(0x06010200u))); // ChangeHitboxDamage - not a creator
     CHECK(psax::event_is_sfx_candidate(ev_var_set(0x20000008u)));  // RA-Basic[8]
     CHECK(psax::event_is_sfx_candidate(ev_var_set(0x2000000Au)));  // RA-Basic[10]
 
@@ -118,14 +118,14 @@ TEST_CASE("filter_sfx_events: min/max does NOT affect collisions or RA-Basic wri
 }
 
 TEST_CASE("filter_sfx_events: collisions require an RA-Basic[8..10] write in the same list") {
-    // A) collisions only — should filter OUT the collisions entirely.
+    // A) collisions only - should filter OUT the collisions entirely.
     {
         std::vector<psax::Event> input = { ev(0x06000D00u), ev(0x06000D00u) };
         auto out = psax::filter_sfx_events(input);
         CHECK(out.empty());
     }
 
-    // B) direct sound only — always included.
+    // B) direct sound only - always included.
     {
         std::vector<psax::Event> input = { ev(0x0A000100u) };
         auto out = psax::filter_sfx_events(input);
@@ -133,7 +133,7 @@ TEST_CASE("filter_sfx_events: collisions require an RA-Basic[8..10] write in the
         CHECK(out[0].cmd_id == 0x0A000100u);
     }
 
-    // C) RA-Basic write + collisions — both included, in order.
+    // C) RA-Basic write + collisions - both included, in order.
     {
         std::vector<psax::Event> input = {
             ev_var_set(0x20000008u),   // RA-Basic[8] = 0x1234
@@ -153,7 +153,7 @@ TEST_CASE("filter_sfx_events: collisions require an RA-Basic[8..10] write in the
     //    collision inclusion, and the write itself is dropped.
     {
         std::vector<psax::Event> input = {
-            ev_var_set(0x20000007u),   // RA-Basic[7] — not a sound register
+            ev_var_set(0x20000007u),   // RA-Basic[7] - not a sound register
             ev(0x06000D00u),
         };
         auto out = psax::filter_sfx_events(input);
@@ -182,11 +182,11 @@ TEST_CASE("audit_sfx: FitMario returns sensible non-empty results") {
     const auto report = psax::audit_sfx(ms);
     CHECK(report.entries.size() > 20u);   // still expect many SFX hits from direct sounds
     // Mario has 2 known edge-case subroutines whose events don't decode cleanly
-    // (args past end of buffer) — count is small and stable, but not zero now
+    // (args past end of buffer) - count is small and stable, but not zero now
     // that we also scan subroutines.
     CHECK(report.failures.size() <= 5u);
 
-    // Every entry should have already passed the contextual filter — if a
+    // Every entry should have already passed the contextual filter - if a
     // collision appears, the same entry MUST also have an RA-Basic[8..10] write.
     for (const auto& r : report.entries) {
         CAPTURE(r.subaction_id);
@@ -206,7 +206,7 @@ TEST_CASE("audit_sfx: FitMario returns sensible non-empty results") {
 TEST_CASE("audit_sfx: subaction entries come first, then subroutines") {
     // Both kinds should appear in the report, and never interleave (subactions
     // always precede subroutines). Not every fighter has subroutine-based SFX,
-    // so we don't hard-require both counts > 0 here — see below for a stricter
+    // so we don't hard-require both counts > 0 here - see below for a stricter
     // subroutine-coverage check on FitMario's --list-subroutines output.
     auto pac = psax::PacFile::load(sample("FitMario.pac"));
     auto misc = pac.find_misc_data();

@@ -30,7 +30,7 @@ const char* CharacterRoot::field_name(Field f) const { return name_of(f); }
 CharacterRoot load_character_root(const MiscSection& ms) {
     // The character root pointer lives in the data-table entry named "data".
     // Simple fighters (FitMario) have this at index 0, but characters like
-    // Dedede export many named entries (one per article — WaddleDee, Goldo,
+    // Dedede export many named entries (one per article - WaddleDee, Goldo,
     // etc.) and "data" may be at a different index. Always look it up by name.
     if (ms.data_table().empty()) {
         throw std::runtime_error("character root: MISC has no data table entries");

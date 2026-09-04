@@ -44,7 +44,7 @@ TEST_CASE("event_subroutine_target: recognises SubRoutine, Goto, ConcurrentInfin
     other.args.push_back({psax::ArgType::Scalar, 0x927C0u});
     CHECK(psax::event_subroutine_target(other) == 0u);
 
-    // SubRoutine with wrong arg type (not Pointer/Value) — treat as no target.
+    // SubRoutine with wrong arg type (not Pointer/Value) - treat as no target.
     psax::Event bad_type;
     bad_type.cmd_id = 0x00070100u;
     bad_type.args.push_back({psax::ArgType::Variable, 0x22000008u});
@@ -54,7 +54,7 @@ TEST_CASE("event_subroutine_target: recognises SubRoutine, Goto, ConcurrentInfin
 TEST_CASE("collect_subroutines: no discovered subroutine overlaps a SubAction entry") {
     // Goto / ConcurrentInfiniteLoop / SubRoutine sometimes point back at an
     // existing SubAction<X>[i] entry point. Those must NOT be reported as
-    // subroutines — they'd be dupes of what the subaction scan already covers.
+    // subroutines - they'd be dupes of what the subaction scan already covers.
     for (const char* name : {"FitMario.pac", "FitGanon.pac", "FitWolf.pac",
                              "FitKirby.pac"}) {
         CAPTURE(name);

@@ -42,7 +42,7 @@ std::string apply_format(const char* fmt, const std::vector<Arg>& args) {
                 fmt = p + 1;
                 continue;
             }
-            // Not a well-formed placeholder — pass the '{' through literally.
+            // Not a well-formed placeholder - pass the '{' through literally.
         }
         out += *fmt++;
     }

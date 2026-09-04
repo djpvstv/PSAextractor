@@ -1,5 +1,7 @@
 #include "psa/command_table.hpp"
 
+#include "psa/overrides.hpp"
+
 namespace psax {
 
 namespace {
@@ -1929,6 +1931,7 @@ constexpr NameEntry kNames[] = {
 
 
 const char* command_name(uint32_t cmd_id) {
+    if (const char* o = override_command_name(cmd_id)) return o;
     for (const auto& n : kNames) {
         if (n.id == cmd_id) return n.name;
     }
@@ -1936,6 +1939,7 @@ const char* command_name(uint32_t cmd_id) {
 }
 
 const char* command_description(uint32_t cmd_id) {
+    if (const char* o = override_command_description(cmd_id)) return o;
     for (const auto& n : kNames) {
         if (n.id == cmd_id) return n.desc;
     }
@@ -1959,6 +1963,7 @@ constexpr FormatEntry kFormats[] = {
 } // namespace
 
 const char* command_format(uint32_t cmd_id) {
+    if (const char* o = override_command_format(cmd_id)) return o;
     for (const auto& f : kFormats) {
         if (f.id == cmd_id) return f.fmt;
     }

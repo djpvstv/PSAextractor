@@ -7,7 +7,7 @@
 
 namespace psax {
 
-// The MISC section is the payload of an ARC MiscData entry — it holds the
+// The MISC section is the payload of an ARC MiscData entry - it holds the
 // entire PSA moveset. The first 32 bytes are a header. Field semantics for
 // two of the five u32s (word1, word2) are still being reverse-engineered.
 struct MiscHeader {
@@ -16,7 +16,7 @@ struct MiscHeader {
     uint32_t file_size = 0;   // matches ARC entry length; CONFIRMED
     uint32_t word1     = 0;   // large offset (0x1EA64 for FitMario); role TBD
     uint32_t word2     = 0;   // medium offset (0x13E0 for FitMario); role TBD
-    uint32_t word3     = 0;   // # of data-table entries ("exports") — CONFIRMED via pattern
+    uint32_t word3     = 0;   // # of data-table entries ("exports") - CONFIRMED via pattern
     uint32_t word4     = 0;   // # of external-sub entries ("imports")
 
     // Convenience aliases with our best-guess semantics.

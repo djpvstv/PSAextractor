@@ -34,7 +34,7 @@ void MiscSection::parse_header() {
 //   Ext sub entry 0 is "effectAnimCmd_BatSwing4Common".
 // Formula: STRPOOL = word1 + word2*4 + 32 + word3*8 + word4*8
 // The +32 gap is an unaccounted-for structure between the lookup table and the
-// data table — possibly 8 extra lookup entries or a small sub-header. TBD.
+// data table - possibly 8 extra lookup entries or a small sub-header. TBD.
 void MiscSection::locate_string_pool() {
     string_pool_start_ =
         std::size_t(header_.word1)

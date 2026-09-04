@@ -7,6 +7,7 @@ add_library(psax_core
     psa/event.cpp
     psa/command_table.cpp
     psa/argument_schema.cpp
+    psa/overrides.cpp
     psa/requirements_table.cpp
     psa/event_decoder.cpp
     psa/character_root.cpp

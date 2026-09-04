@@ -8,11 +8,11 @@ namespace psax {
 
 // Nintendo ARC archive file-type enum (subset relevant to fighter PACs).
 // Only MiscData (1) is confirmed by us against BrawlCrate; names 2-7 are the
-// commonly-cited BrawlLib values; 8 is unverified — in fighter PACs it appears
+// commonly-cited BrawlLib values; 8 is unverified - in fighter PACs it appears
 // to be the nested ef_<char> effects archive.
 enum class ArcFileType : uint16_t {
     None          = 0,
-    MiscData      = 1,   // PSA moveset section — the one we care about
+    MiscData      = 1,   // PSA moveset section - the one we care about
     ModelData     = 2,
     TextureData   = 3,
     AnimationData = 4,

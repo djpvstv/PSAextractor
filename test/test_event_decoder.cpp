@@ -117,7 +117,7 @@ TEST_CASE("Variable decoder unpacks memory-class + data-type + index") {
     //   0x00004E23 -> IC-Basic[20003]
     //   0x21000008 -> RA-Float[8]
     //   0x22000008 -> RA-Bit[8]
-    // Bit layout: [mc:4][dt:4][index:24]  (was [dt:4][mc:4][...] — swapped).
+    // Bit layout: [mc:4][dt:4][index:24]  (was [dt:4][mc:4][...] - swapped).
     struct C { uint32_t raw; const char* expected; };
     const C cases[] = {
         {0x20000008u, "RA-Basic[8]"},
@@ -189,13 +189,11 @@ TEST_CASE("Requirement arg decodes via PSAC's Requirements.txt with negation bit
     CHECK(psax::Arg{psax::ArgType::Requirement, 0x00001234u}.to_pretty_string() == "req(0x1234)"); // way out of table
 }
 
-// Regression: TerminateGraphicEffect (0x11150300) arg names came from
-// BrawlCrate as (Graphic, Boolean, Boolean) — a degraded set. PSAC's
+// TerminateGraphicEffect (0x11150300) arg names came from
+// BrawlCrate as (Graphic, Boolean, Boolean). PSAC's
 // Parameters.txt has the better names (Graphic ID, Instant, Boolean).
 // This test locks in the PSAC-preferred names against real bytes from
-// FitChief.pac's subroutine at stored offset 0x3087C. (User originally
-// referenced "event 61" for this location — the actual TerminateGraphicEffect
-// event is index 52; event 61 in that subroutine is EndIf().)
+// FitChief.pac's subroutine at stored offset 0x3087C.
 TEST_CASE("FitChief subroutine 0x3087C: TerminateGraphicEffect uses PSAC arg names") {
     auto pac = psax::PacFile::load(sample("FitChief.pac"));
     auto misc = pac.find_misc_data();
@@ -217,7 +215,7 @@ TEST_CASE("FitChief subroutine 0x3087C: TerminateGraphicEffect uses PSAC arg nam
     CHECK(e.args[2].type == psax::ArgType::Boolean);
     CHECK(e.args[2].raw_value == 0x00000001u);   // true
 
-    // Pretty-print: PSAC names win — "Graphic ID" and "Instant", not
+    // Pretty-print: PSAC names win - "Graphic ID" and "Instant", not
     // BrawlCrate's degraded "Graphic" and "Boolean".
     const std::string got = e.to_pretty_string();
     CHECK(got ==

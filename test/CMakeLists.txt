@@ -18,6 +18,7 @@ add_executable(psax_tests
     test_regression_sweep.cpp
     test_animation_flags.cpp
     test_sfx_audit.cpp
+    test_overrides.cpp
 )
 target_link_libraries(psax_tests PRIVATE psax_core doctest::doctest)
 target_compile_definitions(psax_tests PRIVATE

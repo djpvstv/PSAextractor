@@ -99,7 +99,7 @@ SfxAuditReport audit_sfx(const MiscSection& ms, const SfxAuditOptions& opt) {
                 ms, root.fields[tab.field], i + 1);
             if (i >= table.size()) continue;
             const uint32_t stored = table[i];
-            // Known "empty slot" sentinels — treat as absent, not as errors.
+            // Known "empty slot" sentinels - treat as absent, not as errors.
             if (stored == 0u || stored == 0xFFFFFFFFu) continue;
 
             std::vector<Event> events;

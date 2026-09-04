@@ -5,6 +5,8 @@
 
 #include "psa/argument_schema.hpp"
 
+#include "psa/overrides.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -1151,12 +1153,14 @@ const ArgSchemaMeta* find_schema(std::uint32_t cmd_id) {
 } // namespace
 
 const char* command_arg_name(std::uint32_t cmd_id, std::uint32_t arg_idx) {
+    if (const char* o = override_command_arg_name(cmd_id, arg_idx)) return o;
     const auto* s = find_schema(cmd_id);
     if (!s || arg_idx >= s->count) return nullptr;
     return kArgNamePool[kFlatArgNameIndices[s->start + arg_idx]];
 }
 
 const char* command_arg_description(std::uint32_t cmd_id, std::uint32_t arg_idx) {
+    if (const char* o = override_command_arg_description(cmd_id, arg_idx)) return o;
     const auto* s = find_schema(cmd_id);
     if (!s || arg_idx >= s->count) return nullptr;
     const char* d = kArgDescPool[kFlatArgDescIndices[s->start + arg_idx]];

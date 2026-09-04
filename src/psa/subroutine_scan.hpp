@@ -42,7 +42,7 @@ struct DiscoveredSubroutine {
 
 // Walk every SubAction Main/GFX/SFX/Other event list, follow all subroutine
 // calls transitively, and return one record per unique subroutine offset.
-// Fault-tolerant — bad event lists are recorded via `decode_error` and skipped.
+// Fault-tolerant - bad event lists are recorded via `decode_error` and skipped.
 std::vector<DiscoveredSubroutine> collect_subroutines(const MiscSection& ms);
 
 } // namespace psax

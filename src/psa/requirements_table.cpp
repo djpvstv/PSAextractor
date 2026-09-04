@@ -124,7 +124,7 @@ constexpr const char* kRequirementNames[] = {
     /* 0x94 */ nullptr,
     /* 0x95 */ "FighterLoaded",
     /* 0x96 */ "TapJumpOnCStickNotHeld",
-    /* 0x97 */ nullptr,   // PSAC file has "295,280,107" here — treat as unnamed
+    /* 0x97 */ nullptr,   // PSAC file has "295,280,107" here - treat as unnamed
 };
 
 constexpr std::size_t kRequirementCount =

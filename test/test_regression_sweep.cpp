@@ -30,7 +30,7 @@ std::vector<std::filesystem::path> discover_pacs() {
     return out;
 }
 
-// Fighter.pac has a different layout (no data-table entry named "data") — its
+// Fighter.pac has a different layout (no data-table entry named "data") - its
 // character-level features aren't decoded yet. All other files should be
 // treated as character-style fighters.
 bool is_character_style(const std::string& fname) {
