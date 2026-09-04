@@ -45,10 +45,14 @@ void print_usage() {
         "  psax <pac> --find-var <descriptor>             same as --audit-var, filtered to one variable.\n"
         "                                                 descriptor: DSL form like 'RA-Basic[8]' or\n"
         "                                                 raw hex like '0x20000008'\n"
-        "  psax init-overrides                            create an overrides/ dir + README + example.json\n"
-        "                                                 next to the current dir; falls back to the\n"
-        "                                                 per-user config dir if the current dir isn't\n"
-        "                                                 writable. no PAC required\n"
+        "  psax init-overrides [--clean]                  create an overrides/ dir + README +\n"
+        "                                                 00_builtin.json (a dump of the entire built-in\n"
+        "                                                 command table in override format, ready to edit)\n"
+        "                                                 NEXT TO THE psax EXECUTABLE. falls back to the\n"
+        "                                                 per-user config dir if the exe dir isn't\n"
+        "                                                 writable. refuses to overwrite an existing\n"
+        "                                                 00_builtin.json unless --clean is passed.\n"
+        "                                                 no PAC required\n"
         "  psax where-overrides                           print every override dir that would be applied,\n"
         "                                                 in load order. no PAC required\n",
     PSAX_VERSION.c_str());
@@ -497,18 +501,34 @@ std::size_t parse_index(const char* s) {
 // they intentionally skip the auto-load of override files. A malformed
 // override in the user's dirs otherwise couldn't be diagnosed without
 // running the tool successfully.
-int handle_init_overrides() {
-    const auto r = psax::init_overrides();
+int handle_init_overrides(int argc, char** argv) {
+    psax::InitOverridesOptions opts;
+    for (int i = 2; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--clean") == 0) {
+            opts.clean = true;
+        } else {
+            std::fprintf(stderr,
+                "init-overrides: unknown option '%s' (only --clean is supported)\n",
+                argv[i]);
+            return 2;
+        }
+    }
+    const auto r = psax::init_overrides(opts);
     if (r.created) {
         std::printf("Created overrides directory: %s\n", r.path.string().c_str());
-        std::printf("  wrote README.md and example.json\n");
     } else {
         std::printf("Overrides directory already exists: %s\n",
                     r.path.string().c_str());
-        std::printf("  (nothing written; drop *.json files here)\n");
+    }
+    if (r.wrote_dump) {
+        std::printf("  wrote 00_builtin.json (%s built-in command table)\n",
+                    opts.clean ? "regenerated" : "seeded from");
+    } else {
+        std::printf("  00_builtin.json already exists; left untouched "
+                    "(pass --clean to regenerate)\n");
     }
     if (r.used_fallback) {
-        std::printf("  (project dir wasn't writable; used per-user fallback)\n");
+        std::printf("  (exe dir wasn't writable; used per-user fallback)\n");
     }
     return 0;
 }
@@ -516,12 +536,14 @@ int handle_init_overrides() {
 int handle_where_overrides() {
     const auto paths = psax::active_overrides_paths();
     if (paths.empty()) {
+        const auto exe_dir = psax::exe_overrides_dir();
         std::printf(
             "No override directories exist yet.\n"
-            "  project (checked): %s\n"
-            "  user    (checked): %s\n"
+            "  exe  (checked): %s\n"
+            "  user (checked): %s\n"
             "Run 'psax init-overrides' to create one.\n",
-            psax::project_overrides_dir().string().c_str(),
+            exe_dir.empty() ? "<could not locate psax executable>"
+                            : exe_dir.string().c_str(),
             psax::user_overrides_dir().string().c_str());
         return 0;
     }
@@ -538,7 +560,7 @@ int handle_where_overrides() {
 void auto_load_overrides() {
     auto acc = psax::load_override_dir(psax::user_overrides_dir());
     acc = psax::merge_overrides(std::move(acc),
-                                psax::load_override_dir(psax::project_overrides_dir()));
+                                psax::load_override_dir(psax::exe_overrides_dir()));
     psax::set_active_overrides(std::move(acc));
 }
 
@@ -556,7 +578,7 @@ int main(int argc, char** argv) {
 
     try {
         // Bare subcommands (no PAC required) - inspection/setup only.
-        if (std::strcmp(argv[1], "init-overrides") == 0)  return handle_init_overrides();
+        if (std::strcmp(argv[1], "init-overrides") == 0)  return handle_init_overrides(argc, argv);
         if (std::strcmp(argv[1], "where-overrides") == 0) return handle_where_overrides();
 
         const char* path = argv[1];

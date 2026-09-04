@@ -1969,4 +1969,11 @@ const char* command_format(uint32_t cmd_id) {
     }
     return nullptr;
 }
+
+std::vector<std::uint32_t> all_named_command_ids() {
+    std::vector<std::uint32_t> out;
+    out.reserve(sizeof(kNames) / sizeof(kNames[0]));
+    for (const auto& n : kNames) out.push_back(n.id);
+    return out;
+}
 } // namespace psax

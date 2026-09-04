@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -56,28 +57,56 @@ const char* override_command_arg_name(std::uint32_t cmd_id,
 const char* override_command_arg_description(std::uint32_t cmd_id,
                                              std::uint32_t arg_idx);
 
-// Conventional locations. project = "<cwd>/overrides"; user = a
+// Conventional locations. exe = "<dir-containing-psax-executable>/overrides"
+// (portable-app model - overrides travel with the binary). user = a
 // platform-specific per-user config dir ("<APPDATA>/psax/overrides" on
 // Windows, "<XDG_CONFIG_HOME|~/.config>/psax/overrides" on Linux,
-// "~/Library/Application Support/psax/overrides" on macOS).
-std::filesystem::path project_overrides_dir();
+// "~/Library/Application Support/psax/overrides" on macOS). Both are
+// consulted at runtime; exe wins on conflict via deep merge.
+//
+// exe_overrides_dir() returns an empty path if the running binary's
+// location can't be determined (very rare - happens if the exe was
+// deleted mid-run, or on unsupported platforms).
+std::filesystem::path exe_overrides_dir();
 std::filesystem::path user_overrides_dir();
 
-// Result of `psax init-overrides`. `path` is where files were created;
-// `used_fallback` is true if the project dir wasn't writable and we fell
-// back to the user dir. `created` is false if the target dir already
-// existed (nothing new was written).
+// Serialize every cmd_id known to the built-in tables (union of the name
+// table + arg-schema table) to `out` in override-file JSON format, ready
+// to be re-read by parse_override_file. This is what `init-overrides`
+// writes as the "00_builtin.json" seed.
+void dump_builtin_command_table(std::ostream& out);
+
+struct InitOverridesOptions {
+    // If false (default), an existing 00_builtin.json is left untouched
+    // and `wrote_dump` in the result is false. If true, the dump is
+    // regenerated even if the file already exists - used to re-sync after
+    // a psax version bump adds new commands.
+    bool clean = false;
+
+    // If non-empty, use this exact directory instead of exe/user defaults.
+    // Primarily for tests that want to point init at a scratch dir; also
+    // usable if a caller wants explicit placement.
+    std::filesystem::path dir_override;
+};
+
+// Result of `psax init-overrides`. `path` is where files live;
+// `used_fallback` is true if the exe dir wasn't writable and we fell
+// back to the user dir. `created` is true if the target dir was newly
+// created. `wrote_dump` is true if 00_builtin.json was (re)written this
+// invocation.
 struct InitOverridesResult {
     std::filesystem::path path;
     bool used_fallback;
     bool created;
+    bool wrote_dump;
 };
 
-// Try to create project_overrides_dir(); if that fails (unwritable parent,
-// permissions), fall back to user_overrides_dir(). Populates a README.md
-// and example.json in the target dir on first creation. Throws on total
-// failure (neither dir usable).
-InitOverridesResult init_overrides();
+// Try to create exe_overrides_dir(); if that fails (unwritable parent,
+// permissions, or exe dir unknown), fall back to user_overrides_dir().
+// Writes README.md and 00_builtin.json into the target dir. Throws on
+// total failure (neither dir usable). Refuses to overwrite an existing
+// 00_builtin.json unless `opts.clean` is set.
+InitOverridesResult init_overrides(const InitOverridesOptions& opts = {});
 
 // For `psax where-overrides` - every directory that would be consulted by
 // auto-load, in the order they'd be applied. Only includes dirs that

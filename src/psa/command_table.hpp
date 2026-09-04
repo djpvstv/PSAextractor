@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace psax {
 
@@ -32,5 +33,11 @@ const char* command_description(uint32_t cmd_id);
 // Only commands with non-default argument display need entries. Add sparingly
 // as we verify each layout against PSAC.
 const char* command_format(uint32_t cmd_id);
+
+// Every cmd_id that has a curated name entry. Used by the overrides dumper
+// to serialize the built-in table; extensions and modders should get the
+// same list via `psax init-overrides`. Order is insertion order in the
+// static table (roughly numeric).
+std::vector<std::uint32_t> all_named_command_ids();
 
 } // namespace psax

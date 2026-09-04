@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace psax {
 namespace {
@@ -1165,6 +1166,18 @@ const char* command_arg_description(std::uint32_t cmd_id, std::uint32_t arg_idx)
     if (!s || arg_idx >= s->count) return nullptr;
     const char* d = kArgDescPool[kFlatArgDescIndices[s->start + arg_idx]];
     return (d && *d) ? d : nullptr;
+}
+
+std::vector<std::uint32_t> all_schema_command_ids() {
+    std::vector<std::uint32_t> out;
+    out.reserve(sizeof(kSchemas) / sizeof(kSchemas[0]));
+    for (const auto& s : kSchemas) out.push_back(s.cmd_id);
+    return out;
+}
+
+std::uint32_t schema_arg_slot_count(std::uint32_t cmd_id) {
+    const auto* s = find_schema(cmd_id);
+    return s ? s->count : 0u;
 }
 
 } // namespace psax

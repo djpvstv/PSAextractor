@@ -8,6 +8,8 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <set>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -286,6 +288,164 @@ TEST_CASE("overrides parser: empty args array and empty override object are OK")
     CHECK(m.size() == 2u);
     CHECK(m[0xC0DE0100u].args.empty());
     CHECK(m[0x00020100u].args.empty());
+}
+
+TEST_CASE("overrides dump_builtin_command_table: covers union of both tables") {
+    std::ostringstream ss;
+    psax::dump_builtin_command_table(ss);
+    const std::string dump = ss.str();
+
+    // Sanity: must be non-empty and start with a JSON object.
+    REQUIRE(!dump.empty());
+    CHECK(dump.front() == '{');
+
+    // Every cmd_id from either table should appear as a hex key. Sample a
+    // few we care about.
+    for (const auto cid : {0x00020100u, 0x11150300u, 0xC0DE0100u}) {
+        char key[16];
+        std::snprintf(key, sizeof(key), "\"0x%08X\"", cid);
+        CHECK_MESSAGE(dump.find(key) != std::string::npos,
+                      "dump missing key ", key);
+    }
+
+    // Names + arg names we know should be present verbatim in the dump.
+    CHECK(dump.find("\"TerminateGraphicEffect\"") != std::string::npos);
+    CHECK(dump.find("\"Instant\"")                != std::string::npos);
+    CHECK(dump.find("\"AsynchronousTimer\"")      != std::string::npos);
+    CHECK(dump.find("\"Frames\"")                 != std::string::npos);
+}
+
+TEST_CASE("overrides dump_builtin_command_table: round-trips through the "
+          "parser and reproduces every built-in lookup") {
+    OverridesGuard g;  // make sure the dump reflects raw built-in, not overrides
+
+    // Snapshot the built-in table BEFORE any override is installed. Values
+    // are copied into std::strings so they stay valid across map churn -
+    // the pointers returned by command_arg_name() would otherwise dangle
+    // the moment we install a different active override map.
+    struct Snap {
+        std::optional<std::string>                             name, desc, fmt;
+        std::vector<std::pair<std::optional<std::string>,
+                              std::optional<std::string>>>     args;
+    };
+    auto snap_ptr = [](const char* p) -> std::optional<std::string> {
+        if (!p) return std::nullopt;
+        return std::string(p);
+    };
+
+    std::set<std::uint32_t> ids;
+    for (auto id : psax::all_named_command_ids())  ids.insert(id);
+    for (auto id : psax::all_schema_command_ids()) ids.insert(id);
+
+    std::unordered_map<std::uint32_t, Snap> before;
+    before.reserve(ids.size());
+    for (auto cid : ids) {
+        Snap s;
+        s.name = snap_ptr(psax::command_name(cid));
+        s.desc = snap_ptr(psax::command_description(cid));
+        s.fmt  = snap_ptr(psax::command_format(cid));
+        const auto slots = psax::schema_arg_slot_count(cid);
+        s.args.reserve(slots);
+        for (std::uint32_t i = 0; i < slots; ++i) {
+            s.args.push_back({snap_ptr(psax::command_arg_name(cid, i)),
+                              snap_ptr(psax::command_arg_description(cid, i))});
+        }
+        before.emplace(cid, std::move(s));
+    }
+
+    // Dump -> temp file -> parse (exercises the file loader too).
+    std::ostringstream ss;
+    psax::dump_builtin_command_table(ss);
+    ScratchDir d;
+    write_file(d.file("dump.json"), ss.str());
+    const auto parsed = psax::parse_override_file(d.file("dump.json"));
+
+    // Apply the parsed dump as active overrides. From here on, accessors
+    // return pointers into the active map, but we only compare against
+    // the string-owning snapshot, so no dangling.
+    psax::set_active_overrides(parsed);
+
+    std::size_t checked = 0;
+    for (auto cid : ids) {
+        const auto& snap = before.at(cid);
+        if (snap.name) {
+            const char* got = psax::command_name(cid);
+            REQUIRE_MESSAGE(got != nullptr, "post-round-trip name missing for cid ", cid);
+            CHECK_MESSAGE(std::string(got) == *snap.name,
+                          "name mismatch after round-trip for cid ", cid);
+        }
+        if (snap.desc) {
+            const char* got = psax::command_description(cid);
+            REQUIRE_MESSAGE(got != nullptr, "post-round-trip desc missing for cid ", cid);
+            CHECK_MESSAGE(std::string(got) == *snap.desc,
+                          "desc mismatch after round-trip for cid ", cid);
+        }
+        if (snap.fmt) {
+            const char* got = psax::command_format(cid);
+            REQUIRE_MESSAGE(got != nullptr, "post-round-trip fmt missing for cid ", cid);
+            CHECK_MESSAGE(std::string(got) == *snap.fmt,
+                          "fmt mismatch after round-trip for cid ", cid);
+        }
+        for (std::uint32_t i = 0; i < snap.args.size(); ++i) {
+            const auto& [n_base, d_base] = snap.args[i];
+            if (n_base) {
+                const char* got = psax::command_arg_name(cid, i);
+                REQUIRE_MESSAGE(got != nullptr,
+                                "post-round-trip arg name missing for cid ", cid);
+                CHECK_MESSAGE(std::string(got) == *n_base,
+                              "arg name mismatch after round-trip for cid ", cid);
+            }
+            if (d_base) {
+                const char* got = psax::command_arg_description(cid, i);
+                REQUIRE_MESSAGE(got != nullptr,
+                                "post-round-trip arg desc missing for cid ", cid);
+                CHECK_MESSAGE(std::string(got) == *d_base,
+                              "arg desc mismatch after round-trip for cid ", cid);
+            }
+        }
+        ++checked;
+    }
+    CHECK(checked > 300);  // sanity: we walked the whole table
+}
+
+TEST_CASE("overrides init_overrides: writes 00_builtin.json, refuses "
+          "second run without --clean, --clean regenerates") {
+    OverridesGuard g;
+
+    // Point init at a scratch dir explicitly instead of relying on the
+    // exe-relative default (which would write into the test binary's
+    // build output directory).
+    ScratchDir d;
+    psax::InitOverridesOptions opts;
+    opts.dir_override = d.path() / "overrides";
+
+    // First run: creates dir + writes dump.
+    const auto r1 = psax::init_overrides(opts);
+    CHECK(r1.created);
+    CHECK(r1.wrote_dump);
+    const auto dump_path = r1.path / "00_builtin.json";
+    REQUIRE(std::filesystem::exists(dump_path));
+    const auto sz1 = std::filesystem::file_size(dump_path);
+    CHECK(sz1 > 1000u);   // ~50-100KB expected
+
+    // Second run without --clean: refuses to touch the file.
+    // Corrupt the file first so we can detect any accidental rewrite.
+    {
+        std::ofstream f(dump_path, std::ios::binary);
+        f << "SENTINEL";
+    }
+    const auto r2 = psax::init_overrides(opts);
+    CHECK_FALSE(r2.created);        // dir already there
+    CHECK_FALSE(r2.wrote_dump);     // key assertion - file left alone
+    std::ifstream in(dump_path, std::ios::binary);
+    std::string content((std::istreambuf_iterator<char>(in)), {});
+    CHECK(content == "SENTINEL");
+
+    // Third run with --clean: overwrites.
+    opts.clean = true;
+    const auto r3 = psax::init_overrides(opts);
+    CHECK(r3.wrote_dump);
+    CHECK(std::filesystem::file_size(dump_path) > 1000u);
 }
 
 TEST_CASE("overrides parser: UTF-8 BOM is stripped") {
