@@ -63,12 +63,12 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x000A0200u,
-        "IfValue",
+        "If",
         "Start an If block until an Else or an End If is reached. Use this If to check for a requirement with a specified value. Read the contents of the If block only if the requirements are met."
     },
     {
         0x000A0400u,
-        "IfComparison",
+        "If",
         "Start an If block until an Else or an End If is reached. Use this If to compare values. Read the contents of the If block only if the requirements are met."
     },
     {
@@ -78,12 +78,12 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x000B0200u,
-        "AndValue",
+        "And",
         "Insert an And statement to an If statement. Use this And to check for a requirement with a specified value. Read the contents of the If block only if all requirements are met."
     },
     {
         0x000B0400u,
-        "AndComparison",
+        "And",
         "Insert an And statement to an If statement. Use this And to compare values. Read the contents of the If block only if all requirements are met."
     },
     {
@@ -93,12 +93,12 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x000C0200u,
-        "OrValue",
+        "Or",
         "Insert an Or statement to an If statement. Use this Or to check for a requirement with a specified value. Read the contents of the If block only if any of the requirements are met."
     },
     {
         0x000C0400u,
-        "OrComparison",
+        "Or",
         "Insert an Or statement to an If statement. Use this Or to compare values. Read the contents of the If block only if any of the requirements are met."
     },
     {
@@ -108,12 +108,12 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x000D0200u,
-        "ElseIfValue",
+        "ElseIf",
         "Insert an Else If block inside an If block. Use this Else If to check for a requirement with a specified value. Reads the contents of the Else If block only if all If series requirements have not been met before this event in the current If block, and this requirement is met."
     },
     {
         0x000D0400u,
-        "ElseIfComparison",
+        "ElseIf",
         "Insert an Else If block inside an If block. Use this Else If to compare values. Reads the contents of the Else If block only if all If series requirements have not been met before this event in the current If block, and this requirement is met."
     },
     {
@@ -238,7 +238,7 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x04000200u,
-        "ChangeSubActionFrame",
+        "ChangeSubAction",
         "Change the current sub action. Can specify whether or not to pass the current frame or start the animation over."
     },
     {
@@ -313,32 +313,32 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x04020100u,
-        "SetRequirement",
+        "SetLoopResumeCondition",
         "Set requirement for reading \"Load Rest\" or later. If multiple \"Set Requirement\" are loaded, if one of them is achieved, load events that exist after \"Load Rest\"."
     },
     {
         0x04020200u,
-        "SetRequirementValue",
+        "SetLoopResumeCondition",
         "Set requirement for reading \"Load Rest\" or later. If multiple \"Set Requirement\" are loaded, if one of them is achieved, load events that exist after \"Load Rest\"."
     },
     {
         0x04020400u,
-        "SetRequirementComparison",
+        "SetLoopResumeCondition",
         "Set requirement for reading \"Load Rest\" or later. If multiple \"Set Requirement\" are loaded, if one of them is achieved, load events that exist after \"Load Rest\"."
     },
     {
         0x04030100u,
-        "SetExtraRequirement",
+        "AdditionalLoopResumeCondition",
         "Add an additional requirement to the preceding \"Set Requirement\". When all the requirements set in these are met, load events that exist after \"Load Rest\"."
     },
     {
         0x04030200u,
-        "SetExtraRequirementValue",
+        "AdditionalLoopResumeCondition",
         "Add an additional requirement to the preceding \"Set Requirement\". When all the requirements set in these are met, load events that exist after \"Load Rest\"."
     },
     {
         0x04030400u,
-        "SetExtraRequirementComparison",
+        "AdditionalLoopResumeCondition",
         "Add an additional requirement to the preceding \"Set Requirement\". When all the requirements set in these are met, load events that exist after \"Load Rest\"."
     },
     {
@@ -798,8 +798,8 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x10010100u,
-        "SetDetachArticle",
-        "Release or detach currently existing Articles with the same Article ID as the specified article. However, it basically has no effect on Articles that have already been released or cannot be released or detached."
+        "ArticleEvent02",
+        "Release or detach currently existing Articles with the same Article ID as the specified article. However, it basically has no effect on Articles that have already been released or cannot be released or detached. (BrawlCrate labels this 'Article Event 02' — its exact semantics are not fully understood.)"
     },
     {
         0x10010200u,
@@ -823,7 +823,7 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x10040200u,
-        "SetArticleSubAction",
+        "SetArticleAction",
         "Change the Sub Action of the Article. Similar to \"Remove Article\", there are some case that do nothing even if loads this event."
     },
     {
@@ -888,7 +888,7 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x11020A00u,
-        "GraphicEffectAttached2",
+        "GraphicEffectAttachedJointRelative",
         "Generate a graphical effect that moves with the bone. The rotation and size don't move from the set values. In other words, it will not rotate or change size with the bone."
     },
     {
@@ -1143,7 +1143,7 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x18010200u,
-        "SlopeContourStand02",
+        "SlopeContourTimer",
         "Keeps such as feet properly on ground slowly when using on the ground. The value same as \"Slope Contour Stand\"."
     },
     {
@@ -1632,7 +1632,7 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x04000300u,
-        "ChangeSubActionPassFramePassFrameSpeed",
+        "ChangeSubAction",
         "Change the current sub action. Can specify whether or not to pass the current frame or start the animation over. Also can specify the frame speed if you give it a scalar/variable, it reads it as the frame speed"
     },
     {
@@ -1642,12 +1642,12 @@ constexpr NameEntry kNames[] = {
     },
     {
         0x040C0200u,
-        "ChangeSubActionReversePlayPassFrame",
+        "ChangeSubActionReversePlay",
         "Change the current sub action (plays in reverse). Can specify whether or not to pass the current frame or start the animation over."
     },
     {
         0x040C0300u,
-        "ChangeSubActionReversePlayPassFramePassFrameSpeed",
+        "ChangeSubActionReversePlay",
         "Change the current sub action (plays in reverse). Can specify whether or not to pass the current frame or start the animation over. Also can specify the frame speed if you give it a scalar/variable, it reads it as the frame speed"
     },
     {
