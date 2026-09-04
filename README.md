@@ -22,3 +22,5 @@ Legend: <required input> [optional input]
 ```
 
 My roadmap includes actions and tables support, writing back to PSA files and ignoring comments, and correctly making injections into Fighter.pac
+
+<img width="409" height="133" alt="image" src="https://github.com/user-attachments/assets/d509ce86-21e1-4534-a5a2-e6238e97c9e6" />
