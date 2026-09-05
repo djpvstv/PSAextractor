@@ -52,7 +52,7 @@ std::string apply_format(const char* fmt, const std::vector<Arg>& args) {
 } // namespace
 
 std::string Event::to_pretty_string() const {
-    // Legacy mode: bare "LegacyName(args)" — matches historical psax output.
+    // Legacy mode: bare "LegacyName(args)" - matches historical psax output.
     // Dotted mode: "module.method(args)", or "method(args)" when the top
     // byte has no assigned module (0x00 flow, 0x01 loopRest). Unknown
     // cmd_ids fall back to "unknown_XXXXXXXX(args)" so grep-ability holds.

@@ -966,7 +966,7 @@ constexpr NameEntry kNames[] = {
         0x10010100u,
         "SetDetachArticle",
         "event02",
-        "Release or detach currently existing Articles with the same Article ID as the specified article. However, it basically has no effect on Articles that have already been released or cannot be released or detached. (BrawlCrate labels this 'Article Event 02' — its exact semantics are not fully understood.)"
+        "Release or detach currently existing Articles with the same Article ID as the specified article. However, it basically has no effect on Articles that have already been released or cannot be released or detached. (BrawlCrate labels this 'Article Event 02' - its exact semantics are not fully understood.)"
     },
     {
         0x10010200u,
@@ -2380,7 +2380,7 @@ constexpr FormatEntry kFormats[] = {
     {0x120B0100u, "{0} = false"},        // BitVariableClear
 };
 
-// Module table — keyed on the top byte of the cmd_id. Long names come from
+// Module table - keyed on the top byte of the cmd_id. Long names come from
 // the game's decompiled module symbols (kept for tooltip / --verbose use);
 // shorthand is what we render as the "<module>." prefix in dotted display.
 // Absent entries (byte 0 = 0x00 flow, 0x01 loopRest, or anything else we
@@ -2399,7 +2399,7 @@ constexpr ModuleEntry kModules[] = {
     {0x06, "collision",  "soCollision*ModuleImpl"},   // unified across 5 sub-modules
     {0x07, "controller", "ftControllerModuleImpl"},
     {0x08, "ground",     "soGroundModuleImpl"},
-    {0x09, "situation",  "soSituationMoudleImpl"},    // sic — matches BC symbol
+    {0x09, "situation",  "soSituationMoudleImpl"},    // sic - matches BC symbol
     {0x0A, "sound",      "soSoundModuleImpl"},
     {0x0B, "visibility", "soVisibilityModuleImpl"},
     {0x0C, "character",  "ft<charname>"},

@@ -2,6 +2,7 @@
 #include "psa/character_root.hpp"
 #include "psa/command_table.hpp"
 #include "psa/event_decoder.hpp"
+#include "psa/event_format.hpp"
 #include "psa/misc_section.hpp"
 #include "psa/animation_flags.hpp"
 #include "psa/overrides.hpp"
@@ -19,7 +20,7 @@
 
 namespace {
 
-std::string PSAX_VERSION {"0.2.1"};
+std::string PSAX_VERSION {"0.2.2"};
 
 void print_usage() {
     std::fprintf(stderr,
@@ -194,10 +195,12 @@ void list_subroutines_cli(const psax::PacFile& pac, bool with_body) {
             }
         }
         if (with_body) {
+            psax::BlockIndentTracker t;
             for (std::size_t i = 0; i < s.events.size(); ++i) {
+                const auto& e = s.events[i];
+                const std::string body = t.indent_for(e) + e.to_pretty_string();
                 std::printf("  [%2zu] %-40s # %s\n",
-                            i, s.events[i].to_pretty_string().c_str(),
-                            s.events[i].to_raw_string().c_str());
+                            i, body.c_str(), e.to_raw_string().c_str());
             }
         }
         std::printf("\n");
@@ -337,10 +340,12 @@ void decode_events_at(const psax::PacFile& pac, uint32_t stored_offset) {
     std::printf("Event stream at stored 0x%X (resolved 0x%zX):\n\n",
                 stored_offset, resolved);
     auto events = dec.decode(resolved);
+    psax::BlockIndentTracker t;
     for (std::size_t i = 0; i < events.size(); ++i) {
         const auto& e = events[i];
+        const std::string body = t.indent_for(e) + e.to_pretty_string();
         std::printf("  [%2zu] %-40s # %s\n",
-                    i, e.to_pretty_string().c_str(), e.to_raw_string().c_str());
+                    i, body.c_str(), e.to_raw_string().c_str());
     }
     std::printf("\n  (%zu events)\n", events.size());
 }
@@ -386,10 +391,12 @@ bool decode_subaction_tab(const psax::PacFile& pac,
 
     psax::EventDecoder dec(pac.entry_data(*pac.find_misc_data()), ms.size());
     auto events = dec.decode(psax::resolve_misc_ptr(stored));
+    psax::BlockIndentTracker t;
     for (std::size_t i = 0; i < events.size(); ++i) {
         const auto& e = events[i];
+        const std::string body = t.indent_for(e) + e.to_pretty_string();
         std::printf("    [%2zu] %-40s # %s\n",
-                    i, e.to_pretty_string().c_str(), e.to_raw_string().c_str());
+                    i, body.c_str(), e.to_raw_string().c_str());
     }
     std::printf("    (%zu events)\n\n", events.size());
     return true;

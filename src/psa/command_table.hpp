@@ -31,7 +31,7 @@ const char* command_legacy_name(uint32_t cmd_id);
 const char* command_method_name(uint32_t cmd_id);
 
 // Module shorthand for the top byte of the cmd_id (e.g. "work" for 0x12).
-// nullptr when the top byte has no assigned module — currently 0x00 (flow
+// nullptr when the top byte has no assigned module - currently 0x00 (flow
 // control) and 0x01 (loopRest) render as bare "method(args)" per your
 // preference for uncluttered flow display.
 const char* command_module_shorthand(std::uint32_t cmd_id);

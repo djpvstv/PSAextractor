@@ -5,6 +5,7 @@ add_library(psax_core
     psa/misc_section.cpp
     psa/arg.cpp
     psa/event.cpp
+    psa/event_format.cpp
     psa/command_table.cpp
     psa/argument_schema.cpp
     psa/overrides.cpp
